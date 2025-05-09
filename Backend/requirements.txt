@@ -24,6 +24,6 @@ opencv-python
 moviepy
 mediapipe
 pygame
-pymysql
-cryptography
+pymysql>=1.0.2
+cryptography>=36.0.0
 jinja2==3.1.2
