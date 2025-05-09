@@ -1,12 +1,10 @@
 FROM python:3.11-slim
-
 WORKDIR /PERCEPTRONX
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Update and install dependencies with specific flags to avoid errors
-RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends \
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     default-libmysqlclient-dev \
     pkg-config \
@@ -22,7 +20,7 @@ RUN apt-get update -y && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python packages
+# Copy requirements first to leverage Docker cache
 COPY Backend/requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
@@ -31,15 +29,14 @@ RUN pip install --upgrade pip && \
 COPY Backend /PERCEPTRONX/Backend
 COPY Frontend_Web /PERCEPTRONX/Frontend_Web
 COPY Frontend /PERCEPTRONX/Frontend
+COPY init.sql /PERCEPTRONX/
 COPY start.sh /PERCEPTRONX/
 
-# Create uploads directory if it doesn't exist
+# Create directories and set permissions
 RUN mkdir -p /PERCEPTRONX/Frontend_Web/static/assets/images/user
 RUN chmod -R 777 /PERCEPTRONX/Frontend_Web/static/assets/images/user
 RUN chmod +x /PERCEPTRONX/start.sh
 
-WORKDIR /PERCEPTRONX/Backend
+WORKDIR /PERCEPTRONX
 EXPOSE 8000
-
-# Use the start script
 CMD ["/bin/bash", "/PERCEPTRONX/start.sh"]

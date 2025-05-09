@@ -1,47 +1,69 @@
-import mysql.connector
+import pymysql
+import pymysql.cursors
 from connections.functions import *
 import os
+import time
+import bcrypt
+from fastapi import HTTPException
+import logging
 
-def get_Mysql_db(max_retries=5, retry_delay=2):
-    host = os.getenv("MYSQL_HOST", "db")  
-    user = os.getenv("MYSQL_USER", "root")
-    password = os.getenv("MYSQL_PASSWORD", "root")  
-    database = os.getenv("MYSQL_DB", "perceptronx")
-    
-    for attempt in range(max_retries):
-        try:
-            connection = mysql.connector.connect(
-                host=host,
-                user=user,
-                password=password,
-                database=database,
-                auth_plugin='mysql_native_password'
-            )
-            return connection
-        except mysql.connector.Error as err:
-            if attempt < max_retries - 1:
-                print(f"Database connection attempt {attempt+1} failed: {err}. Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-            else:
-                print(f"Failed to connect to database after {max_retries} attempts: {err}")
-                raise
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("database")
+
+def get_Mysql_db():
+    try:
+        host = os.getenv("MYSQL_HOST", "mysql.railway.internal")
+        port = int(os.getenv("MYSQL_PORT", "3306"))
+        user = os.getenv("MYSQL_USER", "root")
+        password = os.getenv("MYSQL_PASSWORD", "AWqqmijuHSlYWmxnpKnEMiIDcY0dOBxc")  # Updated to match Railway password
+        database = os.getenv("MYSQL_DB", "railway")
+        
+        logger.debug(f"Connecting to MySQL at {host}:{port} with user {user} and database {database}")
+        
+        connection = pymysql.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database,
+            connect_timeout=10,  
+            charset='utf8mb4',   
+            cursorclass=pymysql.cursors.DictCursor 
+        )
+        
+        logger.debug("MySQL connection successful")
+        return connection
+    except Exception as e:
+        logger.error(f"MySQL database connection failed: {e}", exc_info=True)
+        raise
 
 def Register_User_Web(first_name, last_name, company_email, password):
     db = get_Mysql_db()
-    cursor = db.cursor()
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     hashed_password = bcrypt.hashpw(password.password.encode("utf-8"), bcrypt.gensalt())
     try:
-        cursor.execute("SELECT COUNT(*) FROM Therapists WHERE first_name = %s AND last_name = %s", (first_name, last_name))
-        if cursor.fetchone()[0] > 0:
+        logger.debug(f"Registering user: {first_name} {last_name}, {company_email}")
+        cursor.execute("SELECT COUNT(*) AS count FROM Therapists WHERE first_name = %s AND last_name = %s", (first_name, last_name))
+        result = cursor.fetchone()
+        count = result.get('count', result.get('COUNT(*)', 0))
+        
+        if count > 0:
+            logger.warning(f"User already exists: {first_name} {last_name}")
             raise HTTPException(status_code=400, detail="Username or email already exists.")
+            
         cursor.execute(
             "INSERT INTO Therapists (first_name, last_name, company_email, password) VALUES (%s, %s, %s, %s)",
             (first_name, last_name, company_email, hashed_password.decode("utf-8"))
         )
         db.commit()
+        logger.debug("User registered successfully")
         return {"message": "User registered successfully"}
-    except mysql.connector.IntegrityError:
+    except pymysql.err.IntegrityError:
+        logger.error("Integrity error during registration")
         return {"error": "Username or email already exists."}
+    except Exception as e:
+        logger.error(f"Registration error: {e}", exc_info=True)
+        return {"error": f"Registration failed: {str(e)}"}
     finally:
         cursor.close()
         db.close()
@@ -51,11 +73,11 @@ async def get_exercise_categories():
     cursor = None
     
     try:
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
         cursor.execute("SELECT * FROM ExerciseCategories ORDER BY name")
         return cursor.fetchall()
     except Exception as e:
-        print(f"Error fetching exercise categories: {e}")
+        logger.error(f"Error fetching exercise categories: {e}", exc_info=True)
         return []
     finally:
         if cursor:
@@ -67,11 +89,11 @@ async def user_profile(user_id):
     db = get_Mysql_db()
     cursor = None
     try:
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
         cursor.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
         return cursor.fetchall()
     except Exception as e:
-        print(f"Error fetching patient profile: {e}")
+        logger.error(f"Error fetching patient profile: {e}", exc_info=True)
         return []
     finally:
         if cursor:
@@ -83,11 +105,11 @@ async def user_patient_profile(user_id):
     db = get_Mysql_db()
     cursor = None
     try:
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
         cursor.execute("SELECT * FROM Patients WHERE user_id = %s", (user_id,))
         return cursor.fetchall()
     except Exception as e:
-        print(f"Error fetching patient profile: {e}")
+        logger.error(f"Error fetching patient profile: {e}", exc_info=True)
         return []
     finally:
         if cursor:
@@ -99,11 +121,11 @@ async def get_therapist_data(therapist_id):
     db = get_Mysql_db()
     cursor = None
     try:
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
         cursor.execute("SELECT * FROM Therapists WHERE id = %s", (therapist_id,))
         return cursor.fetchall()
     except Exception as e:
-        print(f"Error fetching therapist profile: {e}")
+        logger.error(f"Error fetching therapist profile: {e}", exc_info=True)
         return []
     finally:
         if cursor:
@@ -115,11 +137,11 @@ async def get_appointment_data(patient_id):
     db = get_Mysql_db()
     cursor = None
     try:
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
         cursor.execute("SELECT * FROM Appointments WHERE patient_id = %s", (patient_id,))
         return cursor.fetchall()
     except Exception as e:
-        print(f"Error fetching appointment data: {e}")
+        logger.error(f"Error fetching appointment data: {e}", exc_info=True)
         return []
     finally:
         if cursor:
@@ -131,11 +153,11 @@ async def get_treatment_plans(patient_id):
     db = get_Mysql_db()
     cursor = None
     try:
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
         cursor.execute("SELECT * FROM TreatmentPlans WHERE patient_id = %s", (patient_id,))
         return cursor.fetchall()
     except Exception as e:
-        print(f"Error fetching treatment plans: {e}")
+        logger.error(f"Error fetching treatment plans: {e}", exc_info=True)
         return []
     finally:
         if cursor:
@@ -147,7 +169,7 @@ async def get_treatment_plan_exercises(plan_id):
     db = get_Mysql_db()
     cursor = None
     try:
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT * FROM TreatmentPlanExercises 
             WHERE plan_id = %s
@@ -165,7 +187,7 @@ async def get_treatment_plan_exercises(plan_id):
         
         return exercises
     except Exception as e:
-        print(f"Error fetching treatment plan exercises: {e}")
+        logger.error(f"Error fetching treatment plan exercises: {e}", exc_info=True)
         return []
     finally:
         if cursor:
@@ -177,41 +199,62 @@ async def get_exercise_details(exercise_id):
     db = get_Mysql_db()
     cursor = None
     try:
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
         cursor.execute("SELECT * FROM Exercises WHERE exercise_id = %s", (exercise_id,))
         return cursor.fetchone()
     except Exception as e:
-        print(f"Error fetching exercise details: {e}")
+        logger.error(f"Error fetching exercise details: {e}", exc_info=True)
         return None
     finally:
         if cursor:
             cursor.close()
         if db:
             db.close()
-            
-async def main(user_id):
-    patient_profile = await user_patient_profile(user_id)
-    if not patient_profile:
-        print("No patient profile found.")
-        return
-    
-    therapist_id = patient_profile[0]['therapist_id']
-    patient_id = patient_profile[0]['patient_id']
-    
-    therapist_data = await get_therapist_data(therapist_id)
-    appointments = await get_appointment_data(patient_id)
-    treatment_plans = await get_treatment_plans(patient_id)
-    
-    print(f"patient_profile: {patient_profile}")
-    print(f"therapist_data: {therapist_data}")
-    print(f"appointments: {appointments}")
-    print(f"treatment_plans: {treatment_plans}")
-    
-    for plan in treatment_plans:
-        plan_exercises = await get_treatment_plan_exercises(plan['plan_id'])
-        print(f"Plan {plan['name']} exercises: {plan_exercises}")
-        
-        for exercise in plan_exercises:
-            exercise_details = await get_exercise_details(exercise['exercise_id'])
-            print(f"Exercise {exercise['exercise_id']} details: {exercise_details}")
 
+def verify_therapist_login(email, password):
+    """
+    Login function for therapists
+    """
+    db = None
+    cursor = None
+    try:
+        logger.debug(f"Verifying login for: {email}")
+        db = get_Mysql_db()
+        cursor = db.cursor(pymysql.cursors.DictCursor)
+        
+        cursor.execute(
+            "SELECT id, first_name, last_name, password FROM Therapists WHERE company_email = %s",
+            (email,)
+        )
+        
+        therapist = cursor.fetchone()
+        logger.debug(f"Therapist found: {therapist is not None}")
+        
+        if not therapist:
+            return None
+            
+        stored_password = therapist['password']
+        if isinstance(stored_password, str):
+            stored_password = stored_password.encode('utf-8')
+            
+        logger.debug("Checking password")
+        if bcrypt.checkpw(password.encode('utf-8'), stored_password):
+            logger.debug("Password verified")
+            return {
+                "user_id": therapist['id'],
+                "first_name": therapist['first_name'],
+                "last_name": therapist['last_name'],
+                "email": email,
+                "user_type": "therapist"
+            }
+        else:
+            logger.warning("Password verification failed")
+            return None
+    except Exception as e:
+        logger.error(f"Login verification error: {e}", exc_info=True)
+        return None
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()

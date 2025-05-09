@@ -9,9 +9,8 @@ from starlette.requests import Request
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path as FilePath
 from fastapi import *
-from ultralytics import YOLO
 from typing import Optional, Dict, List
-import cv2, matplotlib.pyplot as plt, pandas as pd, torch, bcrypt, user_agents, datetime
+import cv2, bcrypt, user_agents, datetime
 from datetime import date, time, timedelta
 import traceback
 from contextlib import asynccontextmanager
@@ -20,7 +19,6 @@ import json
 import aiofiles
 import mediapipe as mp
 import time
-import pygame
 import subprocess
 import os
 import numpy as np
