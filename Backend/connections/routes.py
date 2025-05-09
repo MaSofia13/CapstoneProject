@@ -4848,16 +4848,23 @@ def Routes():
             cursor = None
             
             try:
-                cursor = db.cursor()
+                cursor = db.cursor(pymysql.cursors.DictCursor)
                 
                 cursor.execute(
                     "SELECT first_name, last_name FROM Therapists WHERE id = %s", 
                     (session_data["user_id"],)
                 )
-                therapist = cursor.fetchone()
+                therapist_result = cursor.fetchone()
                 
-                if not therapist:
+                if not therapist_result:
                     return RedirectResponse(url="/Therapist_Login")
+                
+                therapist = {}
+                for key, value in therapist_result.items():
+                    if isinstance(value, bytes):
+                        therapist[key] = value.decode('utf-8')
+                    else:
+                        therapist[key] = value
                 
                 cursor.execute(
                     """SELECT patient_id, first_name, last_name, diagnosis, phone
@@ -4866,14 +4873,24 @@ def Routes():
                     ORDER BY last_name, first_name""", 
                     (session_data["user_id"],)
                 )
-                patients = cursor.fetchall()
+                patients_result = cursor.fetchall()
+                
+                patients = []
+                for patient in patients_result:
+                    clean_patient = {}
+                    for key, value in patient.items():
+                        if isinstance(value, bytes):
+                            clean_patient[key] = value.decode('utf-8')
+                        else:
+                            clean_patient[key] = value
+                    patients.append(clean_patient)
                 
                 cursor.execute(
                     "SELECT COUNT(*) as count FROM Messages WHERE recipient_id = %s AND recipient_type = 'therapist' AND is_read = FALSE",
                     (session_data["user_id"],)
                 )
                 unread_count_result = cursor.fetchone()
-                unread_messages_count = unread_count_result['count'] if unread_count_result else 0
+                unread_messages_count = unread_count_result.get('count', 0) if unread_count_result else 0
                 
                 cursor.execute(
                     """SELECT m.message_id, m.subject, m.content, m.created_at, 
@@ -4889,9 +4906,16 @@ def Routes():
 
                 recent_messages = []
                 for message in messages_result:
-                    message_with_time = message.copy()
+                    clean_message = {}
+                    for key, value in message.items():
+                        if isinstance(value, bytes):
+                            clean_message[key] = value.decode('utf-8')
+                        else:
+                            clean_message[key] = value
                     
-                    timestamp = message['created_at']
+                    message_with_time = dict(clean_message)
+                    
+                    timestamp = clean_message.get('created_at')
                     now = datetime.datetime.now()
                     if isinstance(timestamp, datetime.datetime):
                         diff = now - timestamp
@@ -4923,8 +4947,8 @@ def Routes():
                     {
                         "request": request,
                         "therapist": therapist_data,
-                        "first_name": therapist["first_name"],
-                        "last_name": therapist["last_name"],
+                        "first_name": therapist_data.get("first_name", ""),
+                        "last_name": therapist_data.get("last_name", ""),
                         "patients": patients,
                         "unread_messages_count": unread_messages_count,
                         "recent_messages": recent_messages,
