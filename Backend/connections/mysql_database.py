@@ -14,8 +14,9 @@ def get_Mysql_db():
     try:
         host = os.getenv("MYSQL_HOST", "mysql.railway.internal")
         port = int(os.getenv("MYSQL_PORT", "3306"))
-        user = os.getenv("MYSQL_USER", "root")
-        password = os.getenv("MYSQL_PASSWORD", "AWqqmijuHSlYWmxnpKnEMiIDcY0dOBxc")
+        # Use the new appuser instead of root
+        user = os.getenv("MYSQL_USER", "appuser")
+        password = os.getenv("MYSQL_PASSWORD", "AppPassword123!")
         database = os.getenv("MYSQL_DB", "railway")
         
         logger.debug(f"Connecting to MySQL at {host}:{port} with user {user} and database {database}")
@@ -29,7 +30,6 @@ def get_Mysql_db():
             connect_timeout=20,
             charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor,
-            ssl={"fake_flag_to_enable_tls": True}
         )
         
         logger.debug("MySQL connection successful")
