@@ -13,29 +13,25 @@ logger = logging.getLogger("database")
 def get_Mysql_db():
     try:
         host = os.getenv("MYSQL_HOST", "mysql.railway.internal")
-        port = int(os.getenv("MYSQL_PORT", "3306"))
-        # Use the new appuser instead of root
-        user = os.getenv("MYSQL_USER", "appuser")
-        password = os.getenv("MYSQL_PASSWORD", "AppPassword123!")
+        port = int(os.getenv("MYSQL_PORT", 3306))
+        user = os.getenv("MYSQL_USER", "root")
+        password = os.getenv("MYSQL_PASSWORD", "zgOcgtuHZLmHfTBxpxAgCaEzgeVnOEII")
         database = os.getenv("MYSQL_DB", "railway")
         
-        logger.debug(f"Connecting to MySQL at {host}:{port} with user {user} and database {database}")
+        logger.debug(f"Connecting to MySQL at {host}:{port}")
         
         connection = pymysql.connect(
             host=host,
             port=port,
             user=user,
             password=password,
-            database=database,
-            connect_timeout=20,
-            charset='utf8mb4',
-            cursorclass=pymysql.cursors.DictCursor,
+            database=database
         )
         
-        logger.debug("MySQL connection successful")
+        logger.debug("Connection successful")
         return connection
     except Exception as e:
-        logger.error(f"MySQL database connection failed: {e}", exc_info=True)
+        logger.error(f"Database connection failed: {e}", exc_info=True)
         raise
 
 def Register_User_Web(first_name, last_name, company_email, password):
