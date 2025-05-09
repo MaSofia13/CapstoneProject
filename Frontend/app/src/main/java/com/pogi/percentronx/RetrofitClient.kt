@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 
 object retrofitClient {
 
-    const val baseUrl = "https://capstoneproject-production-2a06.up.railway.app/"
+    const val baseUrl = "capstoneproject-production-5b76.up.railway.app/"
     private var applicationContext: Context? = null
 
     private val cookieStore = HashMap<String, MutableList<Cookie>>()
