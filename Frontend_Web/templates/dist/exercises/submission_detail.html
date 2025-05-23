@@ -372,6 +372,68 @@
               </div>
             </div>
           </div>
+
+          <!-- Pose Detection Analysis -->
+-          <div class="card mb-4">
+-            <div class="card-header">
+-              <h5>Pose Detection Analysis</h5>
+-            </div>
+-            <div class="card-body">
+-              {% if submission.has_processed_video %}
+-              <!-- Already processed video exists -->
+-              <div class="ratio ratio-16x9 mb-4">
+-                <video id="processed-video" controls class="rounded" preload="metadata">
+-                  <source src="{{ submission.processed_video_url }}" type="video/mp4">
+-                  Your browser does not support the video tag or the video format.
+-                </video>
+-              </div>
+-              <div class="alert alert-info mb-3">
+-                <i class="ti ti-info-circle me-2"></i>
+-                The video above shows a pose detection analysis that highlights body movement patterns.
+-              </div>
+-              <div class="d-flex justify-content-between">
+-                <button onclick="regenerateVideo()" class="btn btn-outline-primary">
+-                  <i class="ti ti-refresh me-1"></i> Regenerate Analysis
+-                </button>
+-                <a href="{{ submission.processed_video_url }}" download class="btn btn-primary">
+-                  <i class="ti ti-download me-1"></i> Download Analysis
+-                </a>
+-              </div>
+-              {% else %}
+-              <!-- No processed video yet -->
+-              <div id="pose-detection-controls">
+-                <div class="alert alert-info mb-4">
+-                  <i class="ti ti-info-circle me-2"></i>
+-                  Generate a pose detection analysis to visualize and evaluate the patient's form and movement patterns.
+-                </div>
+-                <div class="text-center">
+-                  <button id="process-video-btn" class="btn btn-primary" data-submission-id="{{ submission.submission_id }}">
+-                    <i class="ti ti-wand me-1"></i> Generate Pose Detection Video
+-                  </button>
+-                </div>
+-              </div>
+-              
+-              <!-- Processing indicator (initially hidden) -->
+-              <div id="processing-indicator" style="display: none;">
+-                <div class="text-center my-5">
+-                  <div class="spinner-border text-primary mb-3" role="status">
+-                    <span class="visually-hidden">Processing...</span>
+-                  </div>
+-                  <p class="mb-2">Processing video with pose detection...</p>
+-                  <p class="text-muted small">This may take several minutes depending on the video length.</p>
+-                  <button id="stop-processing-btn" class="btn btn-warning mt-3">
+-                    <i class="ti ti-player-stop me-1"></i> Stop Processing & Save Current Progress
+-                  </button>
+-                </div>
+-              </div>
+-              
+-              <!-- Processed video container (initially hidden) -->
+-              <div id="processed-video-container" style="display: none;">
+-                <!-- Content will be inserted by JavaScript when processing is complete -->
+-              </div>
+-              {% endif %}
+-            </div>
+-          </div>
           
           <!-- Feedback Section -->
           <div class="card">
