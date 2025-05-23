@@ -288,20 +288,20 @@ def Routes():
         print(f"Session ID from cookie: {session_id}")
         if not session_id:
             print("No session ID found in cookie")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         try:
             session_data = await get_redis_session(session_id)
             print(f"Session data retrieved: {session_data}")
             if not session_data:
                 print("Session data is None")
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             user_id = int(session_data["user_id"]) if session_data.get("user_id") else None
             print(f"User ID (converted to int): {user_id}")
             
             if not user_id:
                 print("Invalid user ID")
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = None
@@ -317,7 +317,7 @@ def Routes():
                 print(f"Therapist data: {therapist}")
                 if not therapist:
                     print(f"No therapist found for ID: {user_id}")
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
 
                 try:
                     print("Executing query #2: Get recent messages")
@@ -791,7 +791,7 @@ def Routes():
             except Exception as e:
                 print(f"Database error in front-page route: {e}")
                 print(f"Traceback: {traceback.format_exc()}")
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             finally:
                 if cursor:
                     cursor.close()
@@ -800,17 +800,17 @@ def Routes():
         except Exception as e:
             print(f"Error in front-page route: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
     
     @app.get("/analytics/recovery")
     async def recovery_analytics(request: Request):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = db.cursor()
@@ -901,12 +901,12 @@ def Routes():
         
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             try:
                 user_id = int(session_data["user_id"])
@@ -927,7 +927,7 @@ def Routes():
                 )
                 therapist = cursor.fetchone()
                 if not therapist:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
 
                 search_condition = ""
                 search_params = []
@@ -1089,7 +1089,7 @@ def Routes():
         except Exception as e:
             print(f"Error in messages page: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
     
     @app.get("/messages/{message_id}")
     async def view_message(request: Request, message_id: int):
@@ -1097,12 +1097,12 @@ def Routes():
         
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             try:
                 user_id = int(session_data["user_id"])
@@ -1123,7 +1123,7 @@ def Routes():
                 )
                 therapist = cursor.fetchone()
                 if not therapist:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
 
                 cursor.execute(
                     """SELECT 
@@ -1220,7 +1220,7 @@ def Routes():
         except Exception as e:
             print(f"Error in view message: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
     
     @app.post("/messages/send")
     async def send_message(request: Request):
@@ -1470,12 +1470,12 @@ def Routes():
     async def view_profile(request: Request):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)  
@@ -1493,7 +1493,7 @@ def Routes():
                 therapist = cursor.fetchone()
 
                 if not therapist:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
 
                 for field in ['specialties', 'education', 'languages']:
                     if therapist.get(field):  
@@ -1608,7 +1608,7 @@ def Routes():
         except Exception as e:
             print(f"Error in profile view: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
     @app.get("/api/therapist/{therapist_id}")
     async def get_therapist_api(therapist_id: int):
@@ -1677,11 +1677,11 @@ def Routes():
     async def edit_profile_form(request: Request):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             db = get_Mysql_db()
             cursor = db.cursor()
             try:
@@ -1696,7 +1696,7 @@ def Routes():
                 )
                 therapist = cursor.fetchone()
                 if not therapist:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 for field in ['specialties', 'education', 'languages']:
                     therapist[field] = safely_parse_json_field(therapist[field])
                 cursor.execute(
@@ -1730,17 +1730,17 @@ def Routes():
         except Exception as e:
             print(f"Error in edit profile form: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
     @app.get("/profile/edit")
     async def edit_profile_form(request: Request):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor) 
             try:
@@ -1755,7 +1755,7 @@ def Routes():
                 )
                 therapist = cursor.fetchone()
                 if not therapist:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                     
                 clean_therapist = {}
                 for key, value in therapist.items():
@@ -1804,7 +1804,7 @@ def Routes():
         except Exception as e:
             print(f"Error in edit profile form: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
     @app.post("/profile/update2")
     async def update_profile_v2(request: Request):
@@ -2200,11 +2200,11 @@ def Routes():
     async def therapist_reviews(request: Request):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)  
             try:
@@ -2217,7 +2217,7 @@ def Routes():
                 )
                 therapist = cursor.fetchone()
                 if not therapist:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
                 clean_therapist = {}
                 for key, value in therapist.items():
@@ -2310,7 +2310,7 @@ def Routes():
         except Exception as e:
             print(f"Error in therapist reviews: {e}")
             print(f"Traceback: {traceback.format_exc()}") 
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
     @app.post("/api/reviews/{review_id}/reply")
     async def reply_to_review(
@@ -2627,11 +2627,11 @@ def Routes():
     async def patient_reports(request: Request):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)
@@ -2644,7 +2644,7 @@ def Routes():
                 )
                 therapist_result = cursor.fetchone()
                 if not therapist_result:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
                 therapist = {}
                 for key, value in therapist_result.items():
@@ -2741,18 +2741,18 @@ def Routes():
                 db.close()
         except Exception as e:
             print(f"Error in patient reports: {e}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
     @app.get("/reports/patients/{patient_id}")
     async def patient_detailed_report(request: Request, patient_id: int):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)  
@@ -2767,7 +2767,7 @@ def Routes():
                 therapist_result = cursor.fetchone()
 
                 if not therapist_result:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                     
                 therapist = {}
                 for key, value in therapist_result.items():
@@ -2963,7 +2963,7 @@ def Routes():
                 db.close()
         except Exception as e:
             print(f"Error in patient detailed report: {e}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
     @app.post("/exercises/add")
     async def add_exercise(
@@ -3068,11 +3068,11 @@ def Routes():
     async def view_exercise_submissions(request: Request):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             
             print(f"Session data: {session_data}")
             
@@ -3088,7 +3088,7 @@ def Routes():
                 therapist_result = cursor.fetchone()
                 if not therapist_result:
                     print(f"Therapist not found for user_id: {session_data['user_id']}")
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
                 therapist = {}
                 for key, value in therapist_result.items():
@@ -3173,7 +3173,7 @@ def Routes():
         except Exception as e:
             print(f"Error in exercise submissions: {e}")
             print(f"Traceback: {traceback.format_exc()}") 
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
 
     @app.get("/debug/file-check/{filename}")
@@ -3210,11 +3210,11 @@ def Routes():
         
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             
             try:
                 user_id = int(session_data["user_id"])
@@ -3236,7 +3236,7 @@ def Routes():
                 )
                 therapist = cursor.fetchone()
                 if not therapist:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
                 cursor.execute(
                     """SELECT evs.*, p.first_name, p.last_name, p.patient_id,
@@ -3302,7 +3302,7 @@ def Routes():
         except Exception as e:
             print(f"Error in submission detail: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
     @app.post("/exercises/submissions/{submission_id}/feedback")
     async def provide_submission_feedback(
@@ -3315,12 +3315,12 @@ def Routes():
         
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             try:
                 user_id = int(session_data["user_id"])
@@ -3375,7 +3375,7 @@ def Routes():
         except Exception as e:
             print(f"Error in providing feedback: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
     @app.get("/exercises/patient-submissions/{patient_id}")
     async def patient_exercise_submissions(request: Request, patient_id: int):
@@ -3383,11 +3383,11 @@ def Routes():
         
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             
             try:
                 user_id = int(session_data["user_id"])
@@ -3409,7 +3409,7 @@ def Routes():
                 )
                 therapist_result = cursor.fetchone()
                 if not therapist_result:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                     
                 therapist = {}
                 for key, value in therapist_result.items():
@@ -3486,7 +3486,7 @@ def Routes():
         except Exception as e:
             print(f"Error in patient exercise submissions: {e}")
             print(f"Traceback: {traceback.format_exc()}")  
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
     @app.get("/exercises/{exercise_id}/edit")
     async def edit_exercise_form(
@@ -3886,12 +3886,12 @@ def Routes():
     async def patient_details(request: Request, patient_id: int):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)  
@@ -3909,7 +3909,7 @@ def Routes():
                 therapist_result = cursor.fetchone()
                 
                 if not therapist_result:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                     
                 therapist = {}
                 for key, value in therapist_result.items():
@@ -4123,19 +4123,19 @@ def Routes():
         except Exception as e:
             print(f"Error in patient details: {e}")
             print(traceback.format_exc()) 
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
             
     @app.get("/patients/{patient_id}/edit")
     async def edit_patient_page(request: Request, patient_id: int, user=Depends(get_current_user)):
         """Route to display the edit patient form"""
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = None
@@ -4150,7 +4150,7 @@ def Routes():
                 therapist = cursor.fetchone()
                 
                 if not therapist:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
                 cursor.execute(
                     "SELECT * FROM Patients WHERE patient_id = %s AND therapist_id = %s", 
@@ -4159,7 +4159,7 @@ def Routes():
                 patient = cursor.fetchone()
                 
                 if not patient:
-                    return RedirectResponse(url="/patients?error=not_found")
+                    return RedirectResponse(url="/patients?error=not_found", status_code=303)
                 
                 if patient['date_of_birth'] and isinstance(patient['date_of_birth'], datetime.date):
                     patient['formatted_dob'] = patient['date_of_birth'].strftime('%Y-%m-%d')
@@ -4191,7 +4191,7 @@ def Routes():
             except Exception as e:
                 print(f"Database error in edit patient page: {e}")
                 print(f"Traceback: {traceback.format_exc()}")
-                return RedirectResponse(url="/patients")
+                return RedirectResponse(url="/patients", status_code=303)
             finally:
                 if cursor:
                     cursor.close()
@@ -4200,7 +4200,7 @@ def Routes():
         except Exception as e:
             print(f"Error in edit patient page: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
     @app.post("/patients/{patient_id}/edit")
     async def update_patient(request: Request, patient_id: int, user=Depends(get_current_user)):
@@ -4209,12 +4209,12 @@ def Routes():
         therapist_data = await get_therapist_data(user["user_id"])
         
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             form_data = await request.form()
             
@@ -4288,7 +4288,7 @@ def Routes():
         except Exception as e:
             print(f"Error updating patient: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
     @app.get("/treatment-plans/new")
     async def new_treatment_plan_page(request: Request, user=Depends(get_current_user)):
@@ -4378,12 +4378,12 @@ def Routes():
         """Display detailed view of a specific treatment plan with exercises and progress"""
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = None
@@ -4398,7 +4398,7 @@ def Routes():
                 therapist_result = cursor.fetchone()
                 
                 if not therapist_result:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
                 therapist = {}
                 for key, value in therapist_result.items():
@@ -4578,19 +4578,19 @@ def Routes():
         except Exception as e:
             print(f"Error in view treatment plan: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
             
     @app.get("/treatment-plans/{plan_id}/edit")
     async def edit_treatment_plan_form(request: Request, plan_id: int):
         """Route to display the edit treatment plan form"""
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             
             db = get_Mysql_db()
             cursor = None
@@ -4699,12 +4699,12 @@ def Routes():
     async def update_treatment_plan(request: Request, plan_id: int):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             
             form = await request.form()
             print("RECEIVED FORM DATA FOR UPDATE:", dict(form))
@@ -4837,12 +4837,12 @@ def Routes():
     async def new_appointment_form(request: Request, user=Depends(get_current_user)):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = None
@@ -4857,7 +4857,7 @@ def Routes():
                 therapist_result = cursor.fetchone()
                 
                 if not therapist_result:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
                 therapist = {}
                 for key, value in therapist_result.items():
@@ -4967,7 +4967,7 @@ def Routes():
         except Exception as e:
             print(f"Error in new appointment form: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
     def process_appointment_for_calendar(appointment):
         """Process an appointment object to make it suitable for calendar display"""
@@ -5073,12 +5073,12 @@ def Routes():
         """Route to display appointments schedule and management page"""
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = None
@@ -5093,7 +5093,7 @@ def Routes():
                 therapist_result = cursor.fetchone()
                 
                 if not therapist_result:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
                 therapist = {}
                 for key, value in therapist_result.items():
@@ -5255,7 +5255,7 @@ def Routes():
         except Exception as e:
             print(f"Error in appointments page: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
     @app.get("/appointments/{appointment_id}")
     async def view_appointment(request: Request, appointment_id: int, user = Depends(get_current_user)):
@@ -5264,12 +5264,12 @@ def Routes():
         therapist_data = await get_therapist_data(user["user_id"])
 
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = None
@@ -5284,7 +5284,7 @@ def Routes():
                 therapist_result = cursor.fetchone()
                 
                 if not therapist_result:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
                 therapist = {}
                 for key, value in therapist_result.items():
@@ -5412,7 +5412,7 @@ def Routes():
         except Exception as e:
             print(f"Error in view appointment: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
             
     @app.get("/appointments/{appointment_id}/edit")
     async def edit_appointment_form(request: Request, appointment_id: int, user = Depends(get_current_user)):
@@ -5421,12 +5421,12 @@ def Routes():
         therapist_data = await get_therapist_data(user["user_id"])
         
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = None
@@ -5441,7 +5441,7 @@ def Routes():
                 therapist_result = cursor.fetchone()
                 
                 if not therapist_result:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
                 therapist = {}
                 for key, value in therapist_result.items():
@@ -5587,7 +5587,7 @@ def Routes():
         except Exception as e:
             print(f"Error in edit appointment form: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
             
     @app.get("/appointments/{appointment_id}/delete")
     async def delete_appointment(request: Request, appointment_id: int, user=Depends(get_current_user)):
@@ -5595,12 +5595,12 @@ def Routes():
         session_id = request.cookies.get("session_id")
         
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             
             db = get_Mysql_db()
             cursor = None
@@ -5641,7 +5641,7 @@ def Routes():
         except Exception as e:
             print(f"Error in delete appointment: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
 
     @app.post("/appointments/{appointment_id}/edit")
@@ -5649,12 +5649,12 @@ def Routes():
         """Handle appointment update form submission"""
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             form_data = await request.form()
             
@@ -5739,19 +5739,19 @@ def Routes():
         except Exception as e:
             print(f"Error updating appointment: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
     
     @app.post("/appointments/new")
     async def create_appointment(request: Request, user=Depends(get_current_user)):
         """Handle appointment creation"""
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             form_data = await request.form()
             
@@ -5815,7 +5815,7 @@ def Routes():
         except Exception as e:
             print(f"Error creating appointment: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
 
     @app.post("/appointments/{appointment_id}/status")
@@ -6107,12 +6107,12 @@ def Routes():
         """Route to delete a treatment plan"""
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             
             form = await request.form()
             plan_id_str = form.get("plan_id")
@@ -6175,12 +6175,12 @@ def Routes():
         """Route to handle creating a new treatment plan with exercises"""
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             
 
             form = await request.form()
@@ -9635,12 +9635,12 @@ def Routes():
         """Display detailed view of a specific exercise"""
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = None
@@ -9655,7 +9655,7 @@ def Routes():
                 therapist_result = cursor.fetchone()
                 
                 if not therapist_result:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
                 therapist = {}
                 for key, value in therapist_result.items():
@@ -9774,7 +9774,7 @@ def Routes():
         except Exception as e:
             print(f"Error in view exercise: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
     @app.post("/treatment-plans/add-exercise")
     async def add_exercise_to_plan(
@@ -9789,12 +9789,12 @@ def Routes():
         """Route to add an exercise to an existing treatment plan"""
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
             
             db = get_Mysql_db()
             cursor = None
@@ -9868,7 +9868,7 @@ def Routes():
         except Exception as e:
             print(f"Error adding exercise to plan: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
     @app.get("/api/treatment-plans/active")
     async def get_active_treatment_plans(request: Request):
@@ -9961,12 +9961,12 @@ def Routes():
     async def patient_metrics(request: Request, patient_id: int):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = db.cursor()
@@ -9984,7 +9984,7 @@ def Routes():
                 therapist = cursor.fetchone()
 
                 if not therapist:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
 
                 cursor.execute(
                     """SELECT * FROM Patients 
@@ -10126,18 +10126,18 @@ def Routes():
         except Exception as e:
             print(f"Error in patient metrics: {e}")
             print(traceback.format_exc()) 
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
     
     @app.post("/patients/{patient_id}/general-note")
     async def update_patient_general_note(request: Request, patient_id: int, notes: str = Form(...)):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = db.cursor()
@@ -10173,7 +10173,7 @@ def Routes():
                 db.close()
         except Exception as e:
             print(f"Error updating patient general note: {e}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
     @app.post("/patients/{patient_id}/metrics")
     async def add_patient_metrics_legacy(
@@ -10191,12 +10191,12 @@ def Routes():
         """
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = db.cursor()
@@ -10265,18 +10265,18 @@ def Routes():
                 db.close()
         except Exception as e:
             print(f"Error in adding patient metrics: {e}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
             
     @app.get("/patients/{patient_id}/notes")
     async def patient_notes(request: Request, patient_id: int):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = db.cursor()
@@ -10292,7 +10292,7 @@ def Routes():
                 therapist = cursor.fetchone()
 
                 if not therapist:
-                    return RedirectResponse(url="/Therapist_Login")
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
 
 
                 cursor.execute(
@@ -10464,7 +10464,7 @@ def Routes():
         except Exception as e:
             print(f"Error in patient notes: {e}")
             print(traceback.format_exc()) 
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
     @app.post("/patients/{patient_id}/notes")
     async def add_patient_note(request: Request, patient_id: int, 
@@ -10472,12 +10472,12 @@ def Routes():
                             appointment_id: Optional[int] = Form(None)):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = db.cursor()
@@ -10514,7 +10514,7 @@ def Routes():
                 db.close()
         except Exception as e:
             print(f"Error in adding patient note: {e}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
     @app.post("/patients/{patient_id}/metrics/add")
     async def add_patient_metrics(
@@ -10529,12 +10529,12 @@ def Routes():
     ):
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
 
         try:
             session_data = await get_redis_session(session_id)
             if not session_data:
-                return RedirectResponse(url="/Therapist_Login")
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
 
             db = get_Mysql_db()
             cursor = db.cursor()
@@ -10579,7 +10579,7 @@ def Routes():
                 db.close()
         except Exception as e:
             print(f"Error in adding patient metrics: {e}")
-            return RedirectResponse(url="/Therapist_Login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
     
     
     @app.get("/api/debug/treatment-plans/{patient_id}")
