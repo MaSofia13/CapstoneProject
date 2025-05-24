@@ -4158,13 +4158,14 @@ def Routes():
                 )
                 patient = cursor.fetchone()
                 
-                if not patient:
-                    return RedirectResponse(url="/patients?error=not_found", status_code=303)
-                
+                patient = list(patient)
+
                 if patient[7] and isinstance(patient[7], datetime.date):
-                    patient['formatted_dob'] = patient[7].strftime('%Y-%m-%d')
+                    patient[7] = patient[7].strftime('%Y-%m-%d')
                 else:
-                    patient['formatted_dob'] = None
+                    patient[7] = None
+                    
+                patient = tuple(patient)
                 
                 cursor.execute(
                     "SELECT COUNT(*) as count FROM Messages WHERE recipient_id = %s AND recipient_type = 'therapist' AND is_read = FALSE",
