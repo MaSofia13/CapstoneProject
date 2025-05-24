@@ -4184,8 +4184,8 @@ def Routes():
                     {
                         "request": request,
                         "therapist": therapist_data,
-                        "first_name": therapist[1],
-                        "last_name": therapist[2],
+                        "first_name": therapist[0],
+                        "last_name": therapist[1],
                         "patient": patient,
                         "unread_messages_count": unread_messages_count,
                         "base_url": base_url  
@@ -10099,8 +10099,8 @@ def Routes():
                     {
                         "request": request,
                         "therapist": therapist,
-                        "first_name": therapist[1],
-                        "last_name": therapist[2],
+                        "first_name": therapist["first_name"],
+                        "last_name": therapist["last_name"],
                         "unread_messages_count": unread_messages_count,
                         "patient": patient,
                         "patient_metrics": patient_metrics,
@@ -10448,8 +10448,8 @@ def Routes():
                     {
                         "request": request,
                         "therapist": therapist,
-                        "first_name": therapist[1],
-                        "last_name": therapist[2],
+                        "first_name": therapist["first_name"],
+                        "last_name": therapist["last_name"],
                         "unread_messages_count": unread_messages_count,
                         "patient": patient,
                         "patient_notes": patient_notes,
