@@ -89,7 +89,6 @@
             <ul class="pc-submenu">
               <li class="pc-item"><a class="pc-link" href="exercises">Browse Exercises</a></li>
               <li class="pc-item"><a class="pc-link" href="exercises/add">Upload New Exercise</a></li>
-              <li class="pc-item"><a class="pc-link" href="#!">Exercise Categories</a></li>
             </ul>
           </li>
         
@@ -102,7 +101,6 @@
             <ul class="pc-submenu">
               <li class="pc-item"><a class="pc-link" href="treatment-plans/new">Create Plan</a></li>
               <li class="pc-item"><a class="pc-link" href="treatment-plans">Manage Plans</a></li>
-              <li class="pc-item"><a class="pc-link" href="#!">Templates</a></li>
             </ul>
           </li>
         </ul>
@@ -305,18 +303,6 @@
               <h5>Patient Information</h5>
             </div>
             <div class="card-body">
-              {% if request.query_params.get('error') %}
-              <div class="alert alert-danger" role="alert">
-                {% if request.query_params.get('error') == 'missing_fields' %}
-                First name and last name are required.
-                {% elif request.query_params.get('error') == 'db_error' %}
-                Database error occurred. Please try again.
-                {% else %}
-                {{ request.query_params.get('error') }}
-                {% endif %}
-              </div>
-              {% endif %}
-              
               <form method="POST">
                 <div class="row">
                   <div class="col-md-6">
