@@ -532,14 +532,12 @@
       
       console.log("Submission ID:", SUBMISSION_ID);
       
-      // DOM element references
       const processBtn = document.getElementById('process-video-btn');
       const stopBtn = document.getElementById('stop-processing-btn');
       const poseDetectionControls = document.getElementById('pose-detection-controls');
       const processingIndicator = document.getElementById('processing-indicator');
       const processedVideoContainer = document.getElementById('processed-video-container');
       
-      // Helper functions for UI management
       function showElement(element) {
         if (element) element.style.display = 'block';
       }
@@ -548,13 +546,11 @@
         if (element) element.style.display = 'none';
       }
       
-      // Initialize global functions for access across the script
       window.checkProcessingStatus = checkProcessingStatus;
       window.updateProgressBar = updateProgressBar;
       window.stopVideoProcessing = stopVideoProcessing;
       window.regenerateVideo = regenerateVideo;
       
-      // Add event listeners
       if (processBtn) {
         processBtn.addEventListener('click', function() {
           console.log("Process button clicked for submission ID:", SUBMISSION_ID);
@@ -573,7 +569,6 @@
         });
       }
       
-      // Function to start video processing
       function startVideoProcessing() {
         console.log("Starting video processing...");
         
@@ -591,12 +586,10 @@
           console.log("Process response:", data);
           
           if (data.status === 'already_processed') {
-            // Video is already processed, show it
             const url = data.download_url || data.processed_video_url;
             showProcessedVideo(url);
           } 
           else if (data.status === 'processing') {
-            // Video is being processed, start checking status
             addProgressBar();
             updateProgressBar(0);
             setTimeout(checkProcessingStatus, 3000);
@@ -608,15 +601,12 @@
         .catch(error => {
           console.error('Error starting video processing:', error);
           
-          // Show error message
           hideElement(processingIndicator);
           showElement(poseDetectionControls);
           
-          // Remove any existing error messages
           const existingErrors = poseDetectionControls.querySelectorAll('.alert-danger');
           existingErrors.forEach(el => el.remove());
           
-          // Add new error message
           const errorDiv = document.createElement('div');
           errorDiv.className = 'alert alert-danger mt-3';
           errorDiv.innerHTML = `
@@ -627,12 +617,10 @@
         });
       }
       
-      // Add progress bar to the processing indicator
       function addProgressBar() {
         const statusText = processingIndicator.querySelector('p.mb-2');
         if (!statusText) return;
         
-        // Check if progress bar already exists
         if (!processingIndicator.querySelector('.progress')) {
           const progressHTML = `
             <div class="progress mt-3 mb-3" style="height: 20px;">
@@ -645,7 +633,6 @@
         }
       }
       
-      // Update progress bar
       function updateProgressBar(percent) {
         addProgressBar();
         
@@ -662,7 +649,6 @@
         }
       }
       
-      // Check processing status
       function checkProcessingStatus() {
         console.log("Checking processing status...");
         
@@ -671,32 +657,25 @@
           .then(data => {
             console.log("Status check data:", data);
             
-            // Update progress if available
             if (data.percent_complete !== undefined) {
               updateProgressBar(data.percent_complete);
             }
             
             if (data.ready && (data.download_url || data.processed_video_url)) {
-              // Processing complete, show the video
               const url = data.download_url || data.processed_video_url;
               showProcessedVideo(url);
             } else if (data.is_processing) {
-              // Still processing, check again soon
-              // Still processing, check again soon
               setTimeout(checkProcessingStatus, 3000);
             } else if (!data.ready && !data.is_processing) {
-              // Something went wrong
               showError("Processing completed but no video was generated. This may be due to codec issues.");
             }
           })
           .catch(error => {
             console.error('Error checking processing status:', error);
-            // Try again after a longer delay
             setTimeout(checkProcessingStatus, 5000);
           });
       }
       
-      // Show processed video completion and download button
 function showProcessedVideo(url) {
   hideElement(processingIndicator);
   showElement(processedVideoContainer);

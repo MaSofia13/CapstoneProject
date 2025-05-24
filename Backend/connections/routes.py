@@ -4161,8 +4161,8 @@ def Routes():
                 if not patient:
                     return RedirectResponse(url="/patients?error=not_found", status_code=303)
                 
-                if patient['date_of_birth'] and isinstance(patient['date_of_birth'], datetime.date):
-                    patient['formatted_dob'] = patient['date_of_birth'].strftime('%Y-%m-%d')
+                if patient[7] and isinstance(patient[7], datetime.date):
+                    patient['formatted_dob'] = patient[7].strftime('%Y-%m-%d')
                 else:
                     patient['formatted_dob'] = None
                 
