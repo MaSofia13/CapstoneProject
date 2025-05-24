@@ -4157,6 +4157,8 @@ def Routes():
                     (patient_id, session_data["user_id"])
                 )
                 patient = cursor.fetchone()
+                if not patient:
+                    return RedirectResponse(url="/patients?error=not_found", status_code=303)
                 
                 patient = list(patient)
 
@@ -4172,7 +4174,7 @@ def Routes():
                     (session_data["user_id"],)
                 )
                 unread_count_result = cursor.fetchone()
-                unread_messages_count = unread_count_result['count'] if unread_count_result else 0
+                unread_messages_count = unread_count_result[0] if unread_count_result else 0
                 
                 base_url = request.url.scheme + "://" + request.url.netloc
                 therapist_data = await get_therapist_data(user["user_id"])
