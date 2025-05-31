@@ -281,8 +281,7 @@ def Routes():
     
 
     @app.get("/front-page")
-        import traceback
-        
+    async def front_page(request: Request):
         session_id = request.cookies.get("session_id")
         print(f"Session ID from cookie: {session_id}")
         if not session_id:
