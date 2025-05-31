@@ -279,7 +279,6 @@ def Routes():
 
         return {"status": "valid"}
     
-
     @app.get("/front-page")
     async def front_page(request: Request):
         session_id = request.cookies.get("session_id")
@@ -350,8 +349,8 @@ def Routes():
                         message_with_time = dict(message)  
 
                         timestamp = message.get('created_at')
-                        now = datetime.datetime.now()
-                        if isinstance(timestamp, datetime.datetime):
+                        now = datetime.now()
+                        if isinstance(timestamp, datetime):
                             diff = now - timestamp
                             if timestamp.date() == now.date():
                                 message_with_time['time_display'] = timestamp.strftime('%I:%M %p')
@@ -412,7 +411,7 @@ def Routes():
                     last_month_count = 0
 
                 appointments_monthly_diff = appointments_count - last_month_count
-                appointments_growth = round((appointments_monthly_diff / max(last_month_count, 1)) * 100, 1)
+                appointments_growth = round((appointments_monthly_diff / max(last_month_count, 1)) * 100, 1) if last_month_count > 0 else 0
 
                 try:
                     print("Executing query #6: Get active patients count")
@@ -429,7 +428,7 @@ def Routes():
                 try:
                     print("Executing query #7: Get new patients this month")
                     cursor.execute(
-                        "SELECT COUNT(*) as count FROM Patients WHERE therapist_id = %s AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')", 
+                        "SELECT COUNT(*) as count FROM Patients WHERE therapist_id = %s AND created_at >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')", 
                         (user_id,)
                     )
                     new_patients_result = cursor.fetchone()
@@ -443,8 +442,8 @@ def Routes():
                     cursor.execute(
                         """SELECT COUNT(*) as count FROM Patients 
                         WHERE therapist_id = %s 
-                        AND created_at BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-                        AND DATE_FORMAT(CURDATE(), '%Y-%m-01')""", 
+                        AND created_at BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%%Y-%%m-01')
+                        AND DATE_FORMAT(CURDATE(), '%%Y-%%m-01')""", 
                         (user_id,)
                     )
                     last_month_new_patients = cursor.fetchone()
@@ -453,7 +452,7 @@ def Routes():
                     print(f"Error in last month new patients query: {e}")
                     last_month_new_count = 1
 
-                patient_growth = round((new_patients_monthly / max(last_month_new_count, 1)) * 100, 1)
+                patient_growth = round((new_patients_monthly / max(last_month_new_count, 1)) * 100, 1) if last_month_new_count > 0 else 0
 
                 try:
                     print("Executing query #9: Get treatment plans count")
@@ -470,7 +469,7 @@ def Routes():
                 try:
                     print("Executing query #10: Get new plans this month")
                     cursor.execute(
-                        "SELECT COUNT(*) as count FROM TreatmentPlans WHERE therapist_id = %s AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')", 
+                        "SELECT COUNT(*) as count FROM TreatmentPlans WHERE therapist_id = %s AND created_at >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')", 
                         (user_id,)
                     )
                     new_plans_result = cursor.fetchone()
@@ -484,8 +483,8 @@ def Routes():
                     cursor.execute(
                         """SELECT COUNT(*) as count FROM TreatmentPlans 
                         WHERE therapist_id = %s 
-                        AND created_at BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-                        AND DATE_FORMAT(CURDATE(), '%Y-%m-01')""", 
+                        AND created_at BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%%Y-%%m-01')
+                        AND DATE_FORMAT(CURDATE(), '%%Y-%%m-01')""", 
                         (user_id,)
                     )
                     last_month_plans = cursor.fetchone()
@@ -494,7 +493,7 @@ def Routes():
                     print(f"Error in last month plans query: {e}")
                     last_month_plans_count = 1
 
-                plans_growth = round((new_plans_monthly / max(last_month_plans_count, 1)) * 100, 1)
+                plans_growth = round((new_plans_monthly / max(last_month_plans_count, 1)) * 100, 1) if last_month_plans_count > 0 else 0
 
                 try:
                     print("Executing query #12: Get average adherence rate")
@@ -514,8 +513,8 @@ def Routes():
                         """SELECT AVG(adherence_rate) as avg_rate 
                         FROM PatientMetrics 
                         WHERE therapist_id = %s 
-                        AND measurement_date BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-                        AND DATE_FORMAT(CURDATE(), '%Y-%m-01')""", 
+                        AND measurement_date BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%%Y-%%m-01')
+                        AND DATE_FORMAT(CURDATE(), '%%Y-%%m-01')""", 
                         (user_id,)
                     )
                     last_month_adherence = cursor.fetchone()
@@ -641,7 +640,7 @@ def Routes():
                         UNION
                         (SELECT 'report-medical' as type, 'Progress Report Updated' as title, 
                             CONCAT(p.first_name, ' ', p.last_name) as primary_detail, 
-                            CONCAT('+', pm.recovery_progress, '% improvement') as secondary_detail, 
+                            CONCAT('+', COALESCE(pm.recovery_progress, 0), '%% improvement') as secondary_detail, 
                             pm.created_at as timestamp,
                             CONCAT('/patients/', p.patient_id) as link
                         FROM PatientMetrics pm
@@ -670,8 +669,8 @@ def Routes():
                             activity_with_color['icon'] = 'report-medical'
 
                         timestamp = activity.get('timestamp')
-                        now = datetime.datetime.now()
-                        if isinstance(timestamp, datetime.datetime):
+                        now = datetime.now()
+                        if isinstance(timestamp, datetime):
                             if timestamp.date() == now.date():
                                 activity_with_color['timestamp'] = f"Today, {timestamp.strftime('%I:%M %p')}"
                             elif timestamp.date() == (now - timedelta(days=1)).date():
@@ -688,11 +687,11 @@ def Routes():
                     print("Executing query #21: Get weekly activity")
                     cursor.execute(
                         """SELECT 
-                            DATE_FORMAT(completion_date, '%a') as day, 
+                            DATE_FORMAT(completion_date, '%%a') as day, 
                             COUNT(*) as count
                         FROM PatientExerciseProgress
                         WHERE completion_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-                        GROUP BY DATE_FORMAT(completion_date, '%a')
+                        GROUP BY DATE_FORMAT(completion_date, '%%a')
                         ORDER BY FIELD(day, 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')"""
                     )
                     weekly_activity = cursor.fetchall()
@@ -713,11 +712,11 @@ def Routes():
                     print("Executing query #22: Get monthly activity")
                     cursor.execute(
                         """SELECT 
-                            DATE_FORMAT(completion_date, '%d') as date, 
+                            DATE_FORMAT(completion_date, '%%d') as date, 
                             COUNT(*) as count
                         FROM PatientExerciseProgress
                         WHERE completion_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                        GROUP BY DATE_FORMAT(completion_date, '%d')
+                        GROUP BY DATE_FORMAT(completion_date, '%%d')
                         ORDER BY date"""
                     )
                     monthly_activity = cursor.fetchall()
@@ -730,17 +729,20 @@ def Routes():
                     print("Executing query #23: Get progress chart data")
                     cursor.execute(
                         """SELECT 
-                            DATE_FORMAT(measurement_date, '%d %b') as date,
+                            DATE_FORMAT(measurement_date, '%%d %%b') as date,
                             AVG(functionality_score) as score 
                         FROM PatientMetrics 
                         WHERE measurement_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                         AND therapist_id = %s
-                        GROUP BY DATE_FORMAT(measurement_date, '%d %b')
+                        GROUP BY DATE_FORMAT(measurement_date, '%%d %%b')
                         ORDER BY measurement_date""", 
                         (user_id,)
                     )
                     progress_chart_data = cursor.fetchall()
-                    progress_data = [{'date': record.get('date'), 'score': float(record.get('score', 0)) if record.get('score') is not None else 0} for record in progress_chart_data]
+                    progress_data = [{
+                        'date': record.get('date'), 
+                        'score': float(record.get('score', 0)) if record.get('score') is not None else 0
+                    } for record in progress_chart_data]
                 except Exception as e:
                     print(f"Error in progress chart data query: {e}")
                     progress_data = []
@@ -799,7 +801,7 @@ def Routes():
             print(f"Error in front-page route: {e}")
             print(f"Traceback: {traceback.format_exc()}")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
-    
+        
     @app.get("/analytics/recovery")
     async def recovery_analytics(request: Request):
         session_id = request.cookies.get("session_id")
