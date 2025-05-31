@@ -18,6 +18,7 @@ import uvicorn, secrets, qrcode, io, socket, time, shutil
 import json
 import aiofiles
 import mediapipe as mp
+import traceback
 import time
 import subprocess
 import os

@@ -3,8 +3,7 @@ from connections.mysql_database import *
 from connections.redis_database import *
 from connections.mongo_db import *
 from contextlib import asynccontextmanager
-import traceback
-import os
+
 
 UPLOAD_DIR = "uploads/exercise_videos"
 UPLOAD_URL_PATH = "/api/uploads/exercise_videos"
@@ -282,8 +281,6 @@ def Routes():
     
     @app.get("/front-page")
     async def front_page(request: Request):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         print(f"Session ID from cookie: {session_id}")
         if not session_id:
@@ -350,29 +347,25 @@ def Routes():
                     recent_messages = []
                     for message in messages_result:
                         message_with_time = dict(message)  
-
                         timestamp = message.get('created_at')
                         now = datetime.datetime.now()
                         if isinstance(timestamp, datetime.datetime):
                             diff = now - timestamp
                             if timestamp.date() == now.date():
                                 message_with_time['time_display'] = timestamp.strftime('%I:%M %p')
-
                                 minutes_ago = diff.seconds // 60
                                 if minutes_ago < 60:
                                     message_with_time['time_ago'] = f"{minutes_ago} min ago"
                                 else:
                                     hours_ago = minutes_ago // 60
-                                    message_with_time['time_ago'] = f"{hours_ago}-{hours_ago}"
-
+                                    message_with_time['time_ago'] = f"{hours_ago} hour{'s' if hours_ago > 1 else ''} ago"
                             elif timestamp.date() == (now - timedelta(days=1)).date():
                                 message_with_time['time_display'] = "Yesterday"
                                 message_with_time['time_ago'] = timestamp.strftime('%I:%M %p')
                             else:
                                 message_with_time['time_display'] = timestamp.strftime('%d %b')
                                 message_with_time['time_ago'] = timestamp.strftime('%Y')
-
-                        recent_messages.append(message_with_time)
+                            recent_messages.append(message_with_time)
                 except Exception as e:
                     print(f"Error in messages query: {e}")
                     recent_messages = []
@@ -445,8 +438,9 @@ def Routes():
                     cursor.execute(
                         """SELECT COUNT(*) as count FROM Patients 
                         WHERE therapist_id = %s 
-                        AND created_at BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-                        AND DATE_FORMAT(CURDATE(), '%Y-%m-01')""", 
+                        AND created_at BETWEEN 
+                            DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH) 
+                            AND LAST_DAY(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))""", 
                         (user_id,)
                     )
                     last_month_new_patients = cursor.fetchone()
@@ -486,8 +480,9 @@ def Routes():
                     cursor.execute(
                         """SELECT COUNT(*) as count FROM TreatmentPlans 
                         WHERE therapist_id = %s 
-                        AND created_at BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-                        AND DATE_FORMAT(CURDATE(), '%Y-%m-01')""", 
+                        AND created_at BETWEEN 
+                            DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH) 
+                            AND LAST_DAY(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))""", 
                         (user_id,)
                     )
                     last_month_plans = cursor.fetchone()
@@ -516,8 +511,9 @@ def Routes():
                         """SELECT AVG(adherence_rate) as avg_rate 
                         FROM PatientMetrics 
                         WHERE therapist_id = %s 
-                        AND measurement_date BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-                        AND DATE_FORMAT(CURDATE(), '%Y-%m-01')""", 
+                        AND measurement_date BETWEEN 
+                            DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH) 
+                            AND LAST_DAY(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))""", 
                         (user_id,)
                     )
                     last_month_adherence = cursor.fetchone()
@@ -539,13 +535,20 @@ def Routes():
                     adherence_direction = "Down"
 
                 try:
-                    print("Executing query #14: Get weekly completion rate - USING SIMPLIFIED QUERY")
-                    cursor.execute("SELECT 75 as completion_rate")
+                    print("Executing query #14: Get weekly completion rate")
+                    cursor.execute(
+                        """SELECT 
+                            (SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) / COUNT(*)) * 100 as completion_rate
+                        FROM PatientExerciseProgress
+                        WHERE therapist_id = %s 
+                        AND completion_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)""",
+                        (user_id,)
+                    )
                     completion_result = cursor.fetchone()
-                    weekly_completion_rate = round(completion_result.get('completion_rate', 0), 0) if completion_result else 75
+                    weekly_completion_rate = round(completion_result.get('completion_rate', 0), 0) if completion_result and completion_result.get('completion_rate') is not None else 0
                 except Exception as e:
-                    print(f"Error even with simplified query: {e}")
-                    weekly_completion_rate = 75
+                    print(f"Error in weekly completion rate query: {e}")
+                    weekly_completion_rate = 0
 
                 try:
                     print("Executing query #15: Get recent patients")
@@ -589,9 +592,6 @@ def Routes():
                 except Exception as e:
                     print(f"Error in average recovery rate query: {e}")
                     avg_recovery_rate = 0
-
-                print("Setting hardcoded value for exercise completion rate")
-                exercise_completion_rate = 80.5
 
                 try:
                     print("Executing query #18: Get average feedback rating")
@@ -680,8 +680,7 @@ def Routes():
                                 activity_with_color['timestamp'] = f"Yesterday, {timestamp.strftime('%I:%M %p')}"
                             else:
                                 activity_with_color['timestamp'] = f"{(now - timestamp).days} days ago"
-
-                        recent_activities.append(activity_with_color)
+                            recent_activities.append(activity_with_color)
                 except Exception as e:
                     print(f"Error in recent activities query: {e}")
                     recent_activities = []
@@ -747,8 +746,29 @@ def Routes():
                     print(f"Error in progress chart data query: {e}")
                     progress_data = []
 
-                print("Setting hardcoded values for donut data")
-                donut_data = {'Completed': 65, 'Partial': 25, 'Missed': 10}
+                try:
+                    print("Executing query #24: Get exercise completion data")
+                    cursor.execute(
+                        """SELECT 
+                            status,
+                            COUNT(*) as count
+                        FROM PatientExerciseProgress
+                        WHERE therapist_id = %s 
+                        AND completion_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                        GROUP BY status""",
+                        (user_id,)
+                    )
+                    completion_data = cursor.fetchall()
+                    
+                    donut_data = {'Completed': 0, 'Partial': 0, 'Missed': 0}
+                    for record in completion_data:
+                        status = record.get('status')
+                        count = record.get('count', 0)
+                        if status in donut_data:
+                            donut_data[status] = count
+                except Exception as e:
+                    print(f"Error in exercise completion data query: {e}")
+                    donut_data = {'Completed': 0, 'Partial': 0, 'Missed': 0}
 
                 print("Rendering dashboard template with dynamic data")
                 return templates.TemplateResponse(
@@ -776,7 +796,7 @@ def Routes():
                         "weekly_completion_rate": weekly_completion_rate,
                         "recent_patients": recent_patients,
                         "avg_recovery_rate": avg_recovery_rate,
-                        "exercise_completion_rate": exercise_completion_rate,
+                        "exercise_completion_rate": weekly_completion_rate, 
                         "patient_satisfaction": patient_satisfaction,
                         "progress_metric_value": progress_metric_value,
                         "recent_activities": recent_activities,
@@ -897,8 +917,6 @@ def Routes():
 
     @app.get("/messages")
     async def messages_page(request: Request, search: str = None):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
@@ -1093,8 +1111,6 @@ def Routes():
     
     @app.get("/messages/{message_id}")
     async def view_message(request: Request, message_id: int):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
@@ -1297,8 +1313,6 @@ def Routes():
 
     @app.post("/messages/reply/{message_id}")
     async def reply_to_message(request: Request, message_id: int):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return {"success": False, "message": "Not authenticated"}
@@ -2561,8 +2575,6 @@ def Routes():
         password: str = Form(...),
         remember: bool = Form(False)
     ):
-        import traceback
-        
         db = get_Mysql_db()
         cursor = None
         try:
@@ -3206,8 +3218,6 @@ def Routes():
     
     @app.get("/exercises/submissions/{submission_id}")
     async def view_exercise_submission(request: Request, submission_id: int):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
@@ -3311,8 +3321,6 @@ def Routes():
         feedback: str = Form(...),
         rating: str = Form(...)
     ):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
@@ -3379,8 +3387,6 @@ def Routes():
         
     @app.get("/exercises/patient-submissions/{patient_id}")
     async def patient_exercise_submissions(request: Request, patient_id: int):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
@@ -4974,8 +4980,6 @@ def Routes():
 
     def process_appointment_for_calendar(appointment):
         """Process an appointment object to make it suitable for calendar display"""
-        from datetime import datetime, date, time, timedelta 
-        
         processed = dict(appointment)
         
 
@@ -5056,9 +5060,6 @@ def Routes():
         return processed
 
     def serialize_datetime(obj):
-        """JSON serializer for datetime objects not serializable by default json code"""
-        from datetime import datetime, date, time, timedelta
-        
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
         elif isinstance(obj, time):
@@ -6189,7 +6190,6 @@ def Routes():
             form = await request.form()
             print("RECEIVED FORM DATA:", dict(form))
             
-
             patient_id = form.get("patient_id")
             plan_name = form.get("plan_name")
             description = form.get("description", "")
@@ -6208,7 +6208,6 @@ def Routes():
                 
                 print(f"ERROR: {error_msg}")
                 
-
                 db = get_Mysql_db()
                 cursor = db.cursor()
                 cursor.execute("SELECT patient_id, first_name, last_name FROM Patients WHERE therapist_id = %s", 
@@ -6234,7 +6233,6 @@ def Routes():
                     }
                 )
             
-
             exercises = form.getlist("exercises[]")
             sets = form.getlist("sets[]")
             repetitions = form.getlist("repetitions[]")
@@ -6248,13 +6246,11 @@ def Routes():
             print(f"Frequencies: {frequencies}")
             print(f"Durations: {durations}")
             
-
             db = get_Mysql_db()
             cursor = None
             
             try:
                 cursor = db.cursor()
-                
 
                 cursor.execute(
                     """INSERT INTO TreatmentPlans 
@@ -6339,8 +6335,6 @@ def Routes():
     @app.get("/therapists")
     async def get_therapists():
         """API endpoint to get a list of all therapists for the mobile app"""
-        import traceback
-        
         try:
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)
@@ -6410,8 +6404,6 @@ def Routes():
             
     @app.get("/therapists/{id}")
     async def get_therapist_details(id: int):
-        import traceback
-        
         try:
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)
@@ -6501,7 +6493,6 @@ def Routes():
     @app.get("/therapists/{id}/availability")
     async def get_therapist_availability(id: int, date: str = None):
         """API endpoint to get available time slots for a therapist"""
-        import traceback
         
         try:
             if not date:
@@ -6594,7 +6585,6 @@ def Routes():
 
     @app.post("/api/book-appointment")
     async def book_appointment(appointment_request: AppointmentRequest, request: Request):
-        import traceback
         
         session_id = request.cookies.get("session_id")
         print(f"Appointment request - Cookie session ID: {session_id}")
@@ -6811,7 +6801,6 @@ def Routes():
                 content={"status": "invalid", "detail": f"Server error: {str(e)}"}
             )
 
-
     @app.post("/therapists/{id}/rate")
     async def rate_therapist(request: Request, id: int, rating: dict):
         """API endpoint to rate a therapist"""
@@ -6892,7 +6881,6 @@ def Routes():
                     )
                 
                 db.commit()
-                
  
                 cursor.execute(
                     """UPDATE Therapists t
@@ -6969,7 +6957,6 @@ def Routes():
  
                 await r.set(f"reset:{reset_token}", email_address, ex=86400)
  
- 
                 print(f"Password reset requested for {email_address}. Token: {reset_token}")
                 
                 return {"status": "valid", "message": "If this email is registered, you will receive reset instructions"}
@@ -7027,7 +7014,6 @@ def Routes():
                         content={"detail": "User not found"}
                     )
                 
- 
                 cursor.execute(
                     """SELECT p.*, t.first_name as therapist_first_name, t.last_name as therapist_last_name
                     FROM Patients p
@@ -7248,7 +7234,7 @@ def Routes():
                 
             except Exception as e:
                 print(f"Database error in get user therapist data API: {e}")
-                import traceback
+                
                 print(f"Traceback: {traceback.format_exc()}")
                 return JSONResponse(
                     status_code=500,
@@ -7261,7 +7247,7 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error in get user therapist data API: {e}")
-            import traceback
+            
             print(f"Traceback: {traceback.format_exc()}")
             return JSONResponse(
                 status_code=500,
@@ -7278,7 +7264,7 @@ def Routes():
     @app.get("/api/user/appointments")
     async def get_user_appointments_data(request: Request):
         """API endpoint to get appointments for the current logged-in user"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -7388,7 +7374,7 @@ def Routes():
     @app.get("/api/user/treatment-plans")
     async def get_user_treatment_plans(request: Request):
         """API endpoint to get treatment plans for the current logged-in user"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -7537,7 +7523,7 @@ def Routes():
     @app.get("/api/user/exercises/progress")
     async def get_user_exercises_progress(request: Request):
         """API endpoint to get overall user progress across all exercises and treatment plans"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -7856,7 +7842,7 @@ def Routes():
         exercise_id: int
     ):
         """API endpoint to get detailed information about a specific exercise"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -8155,7 +8141,7 @@ def Routes():
         completed: bool
     ):
         """API endpoint to update the completion status of an exercise in a treatment plan"""
-        import traceback
+        
         
         print(f"Received update request for exercise {plan_exercise_id}, completed={completed}")
         
@@ -8913,7 +8899,7 @@ def Routes():
         exercise_id: int
     ):
         """API endpoint to get history of all completions of a specific exercise across all treatment plans"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -9075,7 +9061,7 @@ def Routes():
     @app.get("/api/therapists/{therapist_id}/details")
     async def get_therapist_details(therapist_id: int):
         """API endpoint to get detailed information about a specific therapist"""
-        import traceback
+        
         
         try:
             db = get_Mysql_db()
@@ -9399,7 +9385,7 @@ def Routes():
     @app.get("/messages/therapist/{therapist_id}")
     async def get_therapist_messages(request: Request, therapist_id: int):
         """API endpoint to get messages between the current user/patient and a specific therapist"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -9532,7 +9518,7 @@ def Routes():
 
     @app.post("/messages/send-to-therapist")
     async def send_message_to_therapist(request: Request):
-        import traceback
+        
         try:
             session_id = request.cookies.get("session_id")
             if not session_id:
@@ -10676,7 +10662,7 @@ def Routes():
         video: UploadFile = File(...)
     ):
         """API endpoint to upload an exercise video for therapist review with enhanced progress handling"""
-        import traceback
+        
         
         print(f"Received video upload request: exercise_id={exercise_id}, treatment_plan_id={treatment_plan_id}")
         print(f"File name: {video.filename}")
@@ -10916,7 +10902,7 @@ def Routes():
     @app.get("/api/user/video-submissions")
     async def get_user_video_submissions(request: Request):
         """API endpoint to get all video submissions for the current user"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -11016,7 +11002,7 @@ def Routes():
     @app.get("/api/video-submissions/{submission_id}")
     async def get_video_submission_details(submission_id: int, request: Request):
         """API endpoint to get detailed information about a specific video submission"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -11115,7 +11101,7 @@ def Routes():
     @app.delete("/api/video-submissions/{submission_id}")
     async def delete_video_submission(submission_id: int, request: Request):
         """API endpoint to delete a video submission"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -11486,7 +11472,7 @@ def Routes():
                         print(f"Background processing completed for submission {submission_id}")
                     except Exception as e:
                         print(f"Error processing video: {e}")
-                        import traceback
+                        
                         traceback.print_exc()
                 
                 thread = threading.Thread(target=process_in_background)
@@ -11502,7 +11488,7 @@ def Routes():
                 })
             except Exception as e:
                 print(f"Database error in process_exercise_video: {e}")
-                import traceback
+                
                 traceback.print_exc()
                 return JSONResponse(status_code=500, content={"error": f"Database error: {str(e)}"})
             finally:
@@ -11512,7 +11498,7 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error processing video: {e}")
-            import traceback
+            
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
     
@@ -11578,7 +11564,7 @@ def Routes():
                     })
             except Exception as e:
                 print(f"Database error in processed_video_status: {e}")
-                import traceback
+                
                 traceback.print_exc()
                 return JSONResponse(status_code=500, content={"error": f"Database error: {str(e)}"})
             finally:
@@ -11588,7 +11574,7 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error checking processed video status: {e}")
-            import traceback
+            
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
 
@@ -11682,7 +11668,7 @@ def Routes():
                     })
             except Exception as e:
                 print(f"Database error in stop_exercise_video_processing: {e}")
-                import traceback
+                
                 traceback.print_exc()
                 return JSONResponse(status_code=500, content={"error": f"Database error: {str(e)}"})
             finally:
@@ -11692,7 +11678,7 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error stopping video processing: {e}")
-            import traceback
+            
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
 
@@ -11723,9 +11709,6 @@ def Routes():
                     print(f"Error removing existing file: {e}")
             
 
-            import cv2
-            import mediapipe as mp
-            
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
                 print(f"Error: Could not open video file {video_path}")
@@ -11843,7 +11826,7 @@ def Routes():
             
         except Exception as e:
             print(f"Error in video processing: {e}")
-            import traceback
+            
             traceback.print_exc()
             return None
         
@@ -11883,7 +11866,7 @@ def Routes():
         
         except Exception as e:
             print(f"Error downloading file: {e}")
-            import traceback
+            
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
         
@@ -11933,7 +11916,7 @@ def Routes():
                 )
             except Exception as e:
                 print(f"Database error in download_video: {e}")
-                import traceback
+                
                 traceback.print_exc()
                 return JSONResponse(status_code=500, content={"error": f"Database error: {str(e)}"})
             finally:
@@ -11943,7 +11926,7 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error downloading video: {e}")
-            import traceback
+            
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
         
@@ -12014,7 +11997,7 @@ def Routes():
                         print(f"Background processing completed for submission {submission_id}")
                     except Exception as e:
                         print(f"Error processing video: {e}")
-                        import traceback
+                        
                         traceback.print_exc()
                 
                 thread = threading.Thread(target=process_in_background)
@@ -12030,7 +12013,6 @@ def Routes():
                 })
             except Exception as e:
                 print(f"Database error in regenerate_exercise_video: {e}")
-                import traceback
                 traceback.print_exc()
                 return JSONResponse(status_code=500, content={"error": f"Database error: {str(e)}"})
             finally:
@@ -12040,7 +12022,6 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error regenerating video: {e}")
-            import traceback
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
         
