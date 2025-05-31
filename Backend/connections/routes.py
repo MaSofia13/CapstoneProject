@@ -3,6 +3,7 @@ from connections.mysql_database import *
 from connections.redis_database import *
 from connections.mongo_db import *
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 
 
 UPLOAD_DIR = "uploads/exercise_videos"
@@ -349,7 +350,7 @@ def Routes():
                         message_with_time = dict(message)  
 
                         timestamp = message.get('created_at')
-                        now = datetime.now()  # Fixed datetime.now()
+                        now = datetime.now()  # This should now work
                         if isinstance(timestamp, datetime):
                             diff = now - timestamp
                             if timestamp.date() == now.date():
@@ -360,7 +361,7 @@ def Routes():
                                     message_with_time['time_ago'] = f"{minutes_ago} min ago"
                                 else:
                                     hours_ago = minutes_ago // 60
-                                    message_with_time['time_ago'] = f"{hours_ago}-{hours_ago}"
+                                    message_with_time['time_ago'] = f"{hours_ago} hr ago"  # Fixed this line
 
                             elif timestamp.date() == (now - timedelta(days=1)).date():
                                 message_with_time['time_display'] = "Yesterday"
@@ -537,7 +538,6 @@ def Routes():
 
                 try:
                     print("Executing query #14: Get weekly completion rate")
-                    # Remove mock data - use actual query
                     cursor.execute(
                         """SELECT 
                             ROUND((COUNT(CASE WHEN pep.sets_completed >= tpe.sets AND pep.repetitions_completed >= tpe.repetitions THEN 1 END) / 
@@ -563,7 +563,7 @@ def Routes():
                         FROM Patients p
                         LEFT JOIN PatientMetrics pm ON p.patient_id = pm.patient_id
                         WHERE p.therapist_id = %s
-                        GROUP BY p.patient_id
+                        GROUP BY p.patient_id, p.first_name, p.last_name, p.diagnosis, p.status
                         ORDER BY p.created_at DESC
                         LIMIT 5""", 
                         (user_id,)
@@ -600,7 +600,6 @@ def Routes():
 
                 try:
                     print("Executing query #17: Get exercise completion rate")
-                    # Remove mock data - use actual query
                     cursor.execute(
                         """SELECT 
                             ROUND(AVG(
@@ -701,7 +700,7 @@ def Routes():
                             activity_with_color['icon'] = 'report-medical'
 
                         timestamp = activity.get('timestamp')
-                        now = datetime.now()
+                        now = datetime.now()  # This should now work
                         if isinstance(timestamp, datetime):
                             if timestamp.date() == now.date():
                                 activity_with_color['timestamp'] = f"Today, {timestamp.strftime('%I:%M %p')}"
@@ -759,16 +758,15 @@ def Routes():
 
                 try:
                     print("Executing query #23: Get progress chart data")
-                    # Fixed group by clause to resolve SQL error
+                    # Fixed GROUP BY clause for MySQL strict mode
                     cursor.execute(
                         """SELECT 
-                            DATE(measurement_date) as date,
                             DATE_FORMAT(measurement_date, '%%d %%b') as formatted_date,
                             AVG(functionality_score) as score 
                         FROM PatientMetrics 
                         WHERE measurement_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                         AND therapist_id = %s
-                        GROUP BY DATE(measurement_date)
+                        GROUP BY DATE_FORMAT(measurement_date, '%%d %%b'), DATE(measurement_date)
                         ORDER BY DATE(measurement_date)""", 
                         (user_id,)
                     )
@@ -783,12 +781,12 @@ def Routes():
 
                 try:
                     print("Executing query #24: Get donut data")
-                    # Remove mock data - use actual query
+                    # Fixed GROUP BY clause for MySQL strict mode
                     cursor.execute(
                         """SELECT 
                             CASE 
-                                WHEN pep.sets_completed >= tpe.sets AND pep.repetitions_completed >= tpe.repetitions THEN 'Completed'
-                                WHEN pep.sets_completed = 0 AND pep.repetitions_completed = 0 THEN 'Missed'
+                                WHEN MIN(pep.sets_completed) >= MAX(tpe.sets) AND MIN(pep.repetitions_completed) >= MAX(tpe.repetitions) THEN 'Completed'
+                                WHEN MAX(pep.sets_completed) = 0 AND MAX(pep.repetitions_completed) = 0 THEN 'Missed'
                                 ELSE 'Partial'
                             END AS status,
                             COUNT(*) AS count
@@ -796,7 +794,12 @@ def Routes():
                         JOIN TreatmentPlanExercises tpe ON pep.plan_exercise_id = tpe.plan_exercise_id
                         JOIN TreatmentPlans tp ON tpe.plan_id = tp.plan_id
                         WHERE tp.therapist_id = %s
-                        GROUP BY status""", 
+                        GROUP BY 
+                            CASE 
+                                WHEN MIN(pep.sets_completed) >= MAX(tpe.sets) AND MIN(pep.repetitions_completed) >= MAX(tpe.repetitions) THEN 'Completed'
+                                WHEN MAX(pep.sets_completed) = 0 AND MAX(pep.repetitions_completed) = 0 THEN 'Missed'
+                                ELSE 'Partial'
+                            END""", 
                         (user_id,)
                     )
                     donut_result = cursor.fetchall()
