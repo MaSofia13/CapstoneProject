@@ -278,180 +278,277 @@ def Routes():
                 print(f"Session validation error: {e}")
 
         return {"status": "valid"}
-    
-    @app.get("/front-page")
-    async def front_page(request: Request, user_id: int = 17):
-        db = get_Mysql_db()
-        cursor = db.cursor(pymysql.cursors.DictCursor)
-        data = {}
 
+    @router.get("/front-page")
+    async def front_page(request: Request):
+        if "user_id" not in request.session:
+            logger.warning("Unauthorized access to /front-page, redirecting to login")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
+
+        db = None
+        cursor = None
         try:
-            # New Patients This Month
+            db = get_Mysql_db()
+            cursor = db.cursor()
+
+            therapist_id = request.session["user_id"]
+            cursor.execute(
+                "SELECT first_name, last_name, profile_image FROM Therapists WHERE therapist_id = %s",
+                (therapist_id,)
+            )
+            therapist = cursor.fetchone()
+            if not therapist:
+                raise HTTPException(status_code=404, detail="Therapist not found")
+
             cursor.execute(
                 """
-                SELECT COUNT(*) as count 
-                FROM Patients 
-                WHERE therapist_id = %s 
-                AND created_at >= DATE_FORMAT(CURDATE(), %s)
+                SELECT COUNT(*) as count, 
+                    COUNT(*) - LAG(COUNT(*)) OVER (ORDER BY MONTH(start_date)) as monthly_diff,
+                    (COUNT(*) - LAG(COUNT(*)) OVER (ORDER BY MONTH(start_date))) / LAG(COUNT(*)) OVER (ORDER BY MONTH(start_date)) * 100 as growth
+                FROM Appointments
+                WHERE therapist_id = %s AND start_date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
                 """,
-                (user_id, '%Y-%m-01')
+                (therapist_id,)
             )
-            data["new_patients_monthly"] = cursor.fetchone().get("count", 0)
+            appointments = cursor.fetchone()
+            appointments_count = appointments["count"] if appointments else 0
+            appointments_monthly_diff = appointments["monthly_diff"] if appointments and appointments["monthly_diff"] else 0
+            appointments_growth = round(appointments["growth"], 1) if appointments and appointments["growth"] else 0.0
 
-            # New Patients Last Month
             cursor.execute(
                 """
-                SELECT COUNT(*) as count 
-                FROM Patients 
-                WHERE therapist_id = %s 
-                AND created_at BETWEEN DATE_SUB(DATE_FORMAT(CURDATE(), %s), INTERVAL 1 MONTH) 
-                AND LAST_DAY(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+                SELECT COUNT(DISTINCT patient_id) as count,
+                    COUNT(DISTINCT CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) THEN patient_id END) as new_patients,
+                    (COUNT(DISTINCT patient_id) - LAG(COUNT(DISTINCT patient_id)) OVER (ORDER BY MONTH(created_at))) / LAG(COUNT(DISTINCT patient_id)) OVER (ORDER BY MONTH(created_at)) * 100 as growth
+                FROM Patients
+                WHERE therapist_id = %s
                 """,
-                (user_id, '%Y-%m-01')
+                (therapist_id,)
             )
-            data["last_month_new_count"] = cursor.fetchone().get("count", 0)
+            patients = cursor.fetchone()
+            active_patients_count = patients["count"] if patients else 0
+            new_patients_monthly = patients["new_patients"] if patients else 0
+            patient_growth = round(patients["growth"], 1) if patients and patients["growth"] else 0.0
 
-            # New Treatment Plans This Month
             cursor.execute(
                 """
-                SELECT COUNT(*) as count 
-                FROM TreatmentPlans 
-                WHERE therapist_id = %s 
-                AND created_at >= DATE_FORMAT(CURDATE(), %s)
+                SELECT COUNT(*) as count,
+                    COUNT(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) THEN 1 END) as new_plans,
+                    (COUNT(*) - LAG(COUNT(*)) OVER (ORDER BY MONTH(created_at))) / LAG(COUNT(*)) OVER (ORDER BY MONTH(created_at)) * 100 as growth
+                FROM TreatmentPlans
+                WHERE therapist_id = %s
                 """,
-                (user_id, '%Y-%m-01')
+                (therapist_id,)
             )
-            data["new_plans_monthly"] = cursor.fetchone().get("count", 0)
+            plans = cursor.fetchone()
+            treatment_plans_count = plans["count"] if plans else 0
+            new_plans_monthly = plans["new_plans"] if plans else 0
+            plans_growth = round(plans["growth"], 1) if plans and plans["growth"] else 0.0
 
-            # Last Month Adherence Rate
             cursor.execute(
                 """
-                SELECT AVG(adherence_rate) as average_rate 
-                FROM PatientMetrics 
-                WHERE therapist_id = %s 
-                AND measurement_date BETWEEN DATE_SUB(DATE_FORMAT(CURDATE(), %s), INTERVAL 1 MONTH) 
-                AND LAST_DAY(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+                SELECT AVG(adherence_rate) as avg_rate,
+                    AVG(adherence_rate) - LAG(AVG(adherence_rate)) OVER (ORDER BY MONTH(date)) as change,
+                    CASE WHEN AVG(adherence_rate) >= LAG(AVG(adherence_rate)) OVER (ORDER BY MONTH(date)) THEN 'up' ELSE 'down' END as direction,
+                    CASE WHEN AVG(adherence_rate) >= LAG(AVG(adherence_rate)) OVER (ORDER BY MONTH(date)) THEN 'success' ELSE 'danger' END as color
+                FROM PatientAdherence
+                WHERE therapist_id = %s AND date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
                 """,
-                (user_id, '%Y-%m-01')
+                (therapist_id,)
             )
-            adherence = cursor.fetchone().get("average_rate", 0)
-            data["last_adherence_rate"] = round(adherence, 2) if adherence else 0
+            adherence = cursor.fetchone()
+            average_adherence_rate = round(adherence["avg_rate"], 1) if adherence and adherence["avg_rate"] else 0.0
+            adherence_change = round(adherence["change"], 1) if adherence and adherence["change"] else 0.0
+            adherence_direction = adherence["direction"] if adherence else "up"
+            adherence_trend_color = adherence["color"] if adherence else "success"
+            adherence_monthly_diff = adherence_change
 
-            # Weekly Activity (Last 7 Days)
             cursor.execute(
                 """
-                SELECT DATE_FORMAT(completion_date, '%Y-%m-%d') as day, 
-                    COUNT(*) as count 
-                FROM PatientExerciseProgress 
-                WHERE therapist_id = %s 
-                AND completion_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) 
-                GROUP BY DATE_FORMAT(completion_date, '%Y-%m-%d') 
-                ORDER BY day
+                SELECT DAYNAME(date) as day, COUNT(*) as count
+                FROM Sessions
+                WHERE therapist_id = %s AND date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                GROUP BY DAYNAME(date)
+                ORDER BY FIELD(DAYNAME(date), 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
                 """,
-                (user_id,)
+                (therapist_id,)
             )
-            weekly_activity = cursor.fetchall()
-            data["weekly_activity"] = [
-                {"day": row["day"], "count": row["count"]} for row in weekly_activity
-            ]
+            chart_data = cursor.fetchall()
+            chart_data = [{"day": item["day"], "count": item["count"]} for item in chart_data]
 
-            # Monthly Completion Rate (Last 30 Days)
             cursor.execute(
                 """
-                SELECT DATE_FORMAT(pep.completion_date, '%Y-%m-%d') as day, 
-                    (COUNT(CASE WHEN pep.sets_completed >= tpe.sets THEN 1 END) / COUNT(*)) * 100 as completion_rate 
-                FROM PatientExerciseProgress pep 
-                JOIN TreatmentPlanExercises tpe ON pep.plan_exercise_id = tpe.plan_exercise_id 
-                WHERE pep.therapist_id = %s 
-                AND pep.completion_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) 
-                GROUP BY DATE_FORMAT(pep.completion_date, '%Y-%m-%d') 
-                ORDER BY day
+                SELECT DATE_FORMAT(date, '%Y-%m-%d') as date, COUNT(*) as count
+                FROM Sessions
+                WHERE therapist_id = %s AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                GROUP BY DATE(date)
+                ORDER BY date
                 """,
-                (user_id,)
+                (therapist_id,)
             )
-            monthly_data = cursor.fetchall()
-            data["monthly_data"] = [
-                {"day": row["day"], "completion_rate": round(row["completion_rate"], 2)}
-                for row in monthly_data
-            ]
+            monthly_chart_data = cursor.fetchall()
 
-            # Recent Patients
             cursor.execute(
                 """
-                SELECT patient_id, first_name, last_name 
-                FROM Patients 
-                WHERE therapist_id = %s 
-                ORDER BY created_at DESC 
-                LIMIT 5
+                SELECT DATE_FORMAT(date, '%Y-%m-%d') as date, AVG(score) as score
+                FROM PatientProgress
+                WHERE therapist_id = %s AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                GROUP BY DATE(date)
+                ORDER BY date
                 """,
-                (user_id,)
+                (therapist_id,)
             )
-            data["recent_patients"] = cursor.fetchall()
+            progress_data = cursor.fetchall()
 
-            # Recent Activities
-            cursor.execute(
-                """
-                SELECT pep.progress_id, p.first_name, p.last_name, 
-                    pep.sets_completed, tpe.sets, pep.completion_date 
-                FROM PatientExerciseProgress pep 
-                JOIN TreatmentPlanExercises tpe ON pep.plan_exercise_id = tpe.plan_exercise_id 
-                JOIN Patients p ON tpe.patient_id = p.patient_id 
-                WHERE pep.therapist_id = %s 
-                ORDER BY pep.completion_date DESC 
-                LIMIT 5
-                """,
-                (user_id,)
-            )
-            data["recent_activities"] = cursor.fetchall()
-
-            # Weekly Completion Breakdown (Pie Chart)
             cursor.execute(
                 """
                 SELECT 
-                    CASE 
-                        WHEN pep.sets_completed >= tpe.sets THEN 'Completed'
-                        WHEN pep.sets_completed > 0 THEN 'Partial'
-                        ELSE 'Missed'
-                    END as status, 
-                    COUNT(*) as count 
-                FROM PatientExerciseProgress pep 
-                JOIN TreatmentPlanExercises tpe ON pep.plan_exercise_id = tpe.plan_exercise_id 
-                WHERE pep.therapist_id = %s 
-                AND pep.completion_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) 
-                GROUP BY status
+                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                    SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial,
+                    SUM(CASE WHEN status = 'missed' THEN 1 ELSE 0 END) as missed
+                FROM ExerciseSessions
+                WHERE therapist_id = %s AND date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
                 """,
-                (user_id,)
+                (therapist_id,)
             )
-            completion_data = cursor.fetchall()
-            data["weekly_completion"] = {
-                "labels": [row["status"] for row in completion_data],
-                "series": [row["count"] for row in completion_data]
+            donut = cursor.fetchone()
+            donut_data = {
+                "Completed": donut["completed"] if donut else 0,
+                "Partial": donut["partial"] if donut else 0,
+                "Missed": donut["missed"] if donut else 0
             }
 
+            cursor.execute(
+                """
+                SELECT patient_id, first_name, last_name, diagnosis, status,
+                    CASE WHEN status = 'Active' THEN 'success'
+                            WHEN status = 'Inactive' THEN 'danger'
+                            ELSE 'warning' END as status_color,
+                    AVG(adherence_rate) as adherence_rate
+                FROM Patients
+                WHERE therapist_id = %s
+                GROUP BY patient_id
+                ORDER BY created_at DESC
+                LIMIT 5
+                """,
+                (therapist_id,)
+            )
+            recent_patients = cursor.fetchall()
+
+            cursor.execute(
+                """
+                SELECT title, activity_type as icon, created_at as timestamp,
+                    patient_name as primary_detail, details as secondary_detail,
+                    CASE WHEN activity_type = 'appointment' THEN 'success'
+                            WHEN activity_type = 'progress' THEN 'primary'
+                            ELSE 'warning' END as color,
+                    link
+                FROM Activities
+                WHERE therapist_id = %s
+                ORDER BY created_at DESC
+                LIMIT 5
+                """,
+                (therapist_id,)
+            )
+            recent_activities = cursor.fetchall()
+
+            cursor.execute(
+                """
+                SELECT message_id, content, profile_image, created_at as time,
+                    TIMESTAMPDIFF(MINUTE, created_at, NOW()) as time_ago,
+                    CASE
+                        WHEN TIMESTAMPDIFF(MINUTE, created_at, NOW()) < 60 THEN CONCAT(TIMESTAMPDIFF(MINUTE, created_at, NOW()), ' minutes ago')
+                        WHEN TIMESTAMPDIFF(HOUR, created_at, NOW()) < 24 THEN CONCAT(TIMESTAMPDIFF(HOUR, created_at, NOW()), ' hours ago')
+                        ELSE CONCAT(DATE_FORMAT(created_at, '%b %d'), ' at %h:%i %p')
+                    END as time_display
+                FROM Messages
+                WHERE therapist_id = %s AND is_read = 0
+                ORDER BY created_at DESC
+                LIMIT 5
+                """,
+                (therapist_id,)
+            )
+            recent_messages = cursor.fetchall()
+            unread_messages_count = len(recent_messages)
+
+            cursor.execute(
+                """
+                SELECT AVG(recovery_rate) as avg_recovery_rate
+                FROM PatientRecovery
+                WHERE therapist_id = %s AND date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+                """,
+                (therapist_id,)
+            )
+            recovery = cursor.fetchone()
+            avg_recovery_rate = round(recovery["avg_recovery_rate"], 1) if recovery and recovery["avg_recovery_rate"] else 0.0
+
+            cursor.execute(
+                """
+                SELECT AVG(completion_rate) as completion_rate
+                FROM ExerciseCompletions
+                WHERE therapist_id = %s AND date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                """,
+                (therapist_id,)
+            )
+            completion = cursor.fetchone()
+            weekly_completion_rate = round(completion["completion_rate"], 1) if completion and completion["completion_rate"] else 0.0
+
+            cursor.execute(
+                """
+                SELECT AVG(score) as score
+                FROM PatientProgress
+                WHERE therapist_id = %s AND date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                """,
+                (therapist_id,)
+            )
+            progress = cursor.fetchone()
+            progress_metric_value = round(progress["score"], 1) if progress and progress["score"] else 0.0
+
+            context = {
+                "request": request,
+                "therapist": therapist,
+                "first_name": therapist["first_name"],
+                "last_name": therapist["last_name"],
+                "appointments_count": appointments_count,
+                "appointments_monthly_diff": appointments_monthly_diff,
+                "appointments_growth": appointments_growth,
+                "active_patients_count": active_patients_count,
+                "new_patients_monthly": new_patients_monthly,
+                "patient_growth": patient_growth,
+                "treatment_plans_count": treatment_plans_count,
+                "new_plans_monthly": new_plans_monthly,
+                "plans_growth": plans_growth,
+                "average_adherence_rate": average_adherence_rate,
+                "adherence_change": adherence_change,
+                "adherence_direction": adherence_direction,
+                "adherence_trend_color": adherence_trend_color,
+                "adherence_monthly_diff": adherence_monthly_diff,
+                "chart_data": chart_data,
+                "monthly_chart_data": monthly_chart_data,
+                "progress_data": progress_data,
+                "donut_data": donut_data,
+                "recent_patients": recent_patients,
+                "recent_activities": recent_activities,
+                "recent_messages": recent_messages,
+                "unread_messages_count": unread_messages_count,
+                "avg_recovery_rate": avg_recovery_rate,
+                "weekly_completion_rate": weekly_completion_rate,
+                "progress_metric_value": progress_metric_value
+            }
+
+            return templates.TemplateResponse("index.html", context)
+        except pymysql.Error as e:
+            logger.error(f"Database error in /front-page: {e}")
+            raise HTTPException(status_code=500, detail="Database error")
         except Exception as e:
-            logger.error(f"Database error: {e}", exc_info=True)
-            # Default values to prevent template crashes
-            data.update({
-                "new_patients_monthly": 0,
-                "last_month_new_count": 0,
-                "new_plans_monthly": 0,
-                "last_adherence_rate": 0,
-                "weekly_activity": [],
-                "monthly_data": [],
-                "recent_patients": [],
-                "recent_activities": [],
-                "weekly_completion": {"labels": [], "series": []}
-            })
-
+            logger.error(f"Unexpected error in /front-page: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
         finally:
-            cursor.close()
-            db.close()
-
-        return templates.TemplateResponse(
-            "index.html",
-            {"request": request, "data": data, "user_id": user_id}
-        )
-
+            if cursor:
+                cursor.close()
+            if db:
+                db.close()
+    
     @app.get("/analytics/recovery")
     async def recovery_analytics(request: Request):
         session_id = request.cookies.get("session_id")
