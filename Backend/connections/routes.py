@@ -350,7 +350,7 @@ def Routes():
                         message_with_time = dict(message)  
 
                         timestamp = message.get('created_at')
-                        now = datetime.now()  # This should now work
+                        now = datetime.now()
                         if isinstance(timestamp, datetime):
                             diff = now - timestamp
                             if timestamp.date() == now.date():
@@ -361,7 +361,7 @@ def Routes():
                                     message_with_time['time_ago'] = f"{minutes_ago} min ago"
                                 else:
                                     hours_ago = minutes_ago // 60
-                                    message_with_time['time_ago'] = f"{hours_ago} hr ago"  # Fixed this line
+                                    message_with_time['time_ago'] = f"{hours_ago} hr ago"
 
                             elif timestamp.date() == (now - timedelta(days=1)).date():
                                 message_with_time['time_display'] = "Yesterday"
@@ -402,7 +402,7 @@ def Routes():
                 try:
                     print("Executing query #5: Get last month appointments")
                     cursor.execute(
-                        "SELECT COUNT(*) as count FROM Appointments WHERE therapist_id = %s AND created_at < DATE_SUB(CURDATE(), INTERVAL 30 DAY)", 
+                        "SELECT COUNT(*) as count FROM Appointments WHERE therapist_id = %s AND appointment_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)", 
                         (user_id,)
                     )
                     last_month_appointments = cursor.fetchone()
@@ -700,7 +700,7 @@ def Routes():
                             activity_with_color['icon'] = 'report-medical'
 
                         timestamp = activity.get('timestamp')
-                        now = datetime.now()  # This should now work
+                        now = datetime.now()
                         if isinstance(timestamp, datetime):
                             if timestamp.date() == now.date():
                                 activity_with_color['timestamp'] = f"Today, {timestamp.strftime('%I:%M %p')}"
@@ -758,21 +758,20 @@ def Routes():
 
                 try:
                     print("Executing query #23: Get progress chart data")
-                    # Fixed GROUP BY clause for MySQL strict mode
                     cursor.execute(
                         """SELECT 
-                            DATE_FORMAT(measurement_date, '%%d %%b') as formatted_date,
+                            DATE(measurement_date) as measurement_date,
                             AVG(functionality_score) as score 
                         FROM PatientMetrics 
                         WHERE measurement_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                         AND therapist_id = %s
-                        GROUP BY DATE_FORMAT(measurement_date, '%%d %%b'), DATE(measurement_date)
+                        GROUP BY DATE(measurement_date)
                         ORDER BY DATE(measurement_date)""", 
                         (user_id,)
                     )
                     progress_chart_data = cursor.fetchall()
                     progress_data = [{
-                        'date': record.get('formatted_date'), 
+                        'date': record.get('measurement_date').strftime('%d %b'), 
                         'score': float(record.get('score', 0)) if record.get('score') is not None else 0
                     } for record in progress_chart_data]
                 except Exception as e:
@@ -781,12 +780,11 @@ def Routes():
 
                 try:
                     print("Executing query #24: Get donut data")
-                    # Fixed GROUP BY clause for MySQL strict mode
                     cursor.execute(
                         """SELECT 
                             CASE 
-                                WHEN MIN(pep.sets_completed) >= MAX(tpe.sets) AND MIN(pep.repetitions_completed) >= MAX(tpe.repetitions) THEN 'Completed'
-                                WHEN MAX(pep.sets_completed) = 0 AND MAX(pep.repetitions_completed) = 0 THEN 'Missed'
+                                WHEN pep.sets_completed >= tpe.sets AND pep.repetitions_completed >= tpe.repetitions THEN 'Completed'
+                                WHEN pep.sets_completed = 0 AND pep.repetitions_completed = 0 THEN 'Missed'
                                 ELSE 'Partial'
                             END AS status,
                             COUNT(*) AS count
@@ -794,12 +792,7 @@ def Routes():
                         JOIN TreatmentPlanExercises tpe ON pep.plan_exercise_id = tpe.plan_exercise_id
                         JOIN TreatmentPlans tp ON tpe.plan_id = tp.plan_id
                         WHERE tp.therapist_id = %s
-                        GROUP BY 
-                            CASE 
-                                WHEN MIN(pep.sets_completed) >= MAX(tpe.sets) AND MIN(pep.repetitions_completed) >= MAX(tpe.repetitions) THEN 'Completed'
-                                WHEN MAX(pep.sets_completed) = 0 AND MAX(pep.repetitions_completed) = 0 THEN 'Missed'
-                                ELSE 'Partial'
-                            END""", 
+                        GROUP BY status""", 
                         (user_id,)
                     )
                     donut_result = cursor.fetchall()
@@ -863,7 +856,7 @@ def Routes():
             print(f"Error in front-page route: {e}")
             print(f"Traceback: {traceback.format_exc()}")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
-
+    
     @app.get("/analytics/recovery")
     async def recovery_analytics(request: Request):
         session_id = request.cookies.get("session_id")
