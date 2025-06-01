@@ -883,7 +883,7 @@ def Routes():
                 return RedirectResponse(url="/Therapist_Login", status_code=303)
             
             try:
-                therapist_id = int(session_data["user_id"])
+                therapist_id = int(session_data["user_id"].strip())
                 logger.debug(f"Therapist ID: {therapist_id}")
             except ValueError:
                 logger.error(f"Invalid user_id format: {session_data['user_id']}")
