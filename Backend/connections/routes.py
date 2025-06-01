@@ -6553,7 +6553,7 @@ def Routes():
 
     @app.get("/therapists/{id}/availability")
     async def get_therapist_availability(id: int, date: str = None):
-        """API endpoint to get available time slots for a therapist"""
+        import datetime as datetimee
         
         try:
             if not date:
@@ -6590,8 +6590,8 @@ def Routes():
                 slot_duration = therapist.get('average_session_length', 60) or 60
                 
                 available_slots = []
-                current_time = datetime.time(start_hour, 0)
-                end_time = datetime.time(end_hour, 0)
+                current_time = datetimee.time(start_hour, 0)
+                end_time = datetimee.time(end_hour, 0)
                 
                 slot_id = 1
                 while current_time < end_time:
