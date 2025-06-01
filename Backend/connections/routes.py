@@ -6595,7 +6595,7 @@ def Routes():
                 
                 slot_id = 1
                 while current_time < end_time:
-                    slot_end = (datetime.combine(date.today(), current_time) + 
+                    slot_end = (datetime.combine(datetimee.date.today(), current_time) + 
                                 timedelta(minutes=slot_duration)).time()
                     
                     is_available = True
