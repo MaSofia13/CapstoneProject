@@ -7,7 +7,6 @@ import datetime
 from datetime import datetime, timedelta, date
 import logging
 
-
 UPLOAD_DIR = "uploads/exercise_videos"
 UPLOAD_URL_PATH = "/api/uploads/exercise_videos"
 
@@ -2950,7 +2949,7 @@ def Routes():
                 
                 for metric in patient_metrics:
                     if metric.get('measurement_date'):
-                        if isinstance(metric['measurement_date'], (datetime.date, datetime)):
+                        if isinstance(metric['measurement_date'], (date, datetime)):
                             metric['measurement_date'] = metric['measurement_date'].strftime('%Y-%m-%d')
 
                 cursor.execute(
@@ -4128,12 +4127,12 @@ def Routes():
                         appt_date = appt.get('appointment_date')
                         appt_time = appt.get('appointment_time')
                         
-                        if isinstance(appt_date, (datetime.date, datetime)):
+                        if isinstance(appt_date, (date, datetime)):
                             date_str = appt_date.strftime('%Y-%m-%d')
                         else:
                             date_str = str(appt_date)
                             
-                        if isinstance(appt_time, datetime.timedelta):
+                        if isinstance(appt_time, timedelta):
                             total_seconds = int(appt_time.total_seconds())
                             hours, remainder = divmod(total_seconds, 3600)
                             minutes, seconds = divmod(remainder, 60)
@@ -5610,7 +5609,7 @@ def Routes():
                     recent_messages.append(message_with_time)
                 
                 appointment_date = appointment.get('appointment_date')
-                formatted_date = appointment_date.strftime('%Y-%m-%d') if isinstance(appointment_date, datetime.date) else appointment_date
+                formatted_date = appointment_date.strftime('%Y-%m-%d') if isinstance(appointment_date, date) else appointment_date
                 
                 appointment_time = appointment.get('appointment_time')
                 if isinstance(appointment_time, datetime.time):
@@ -6596,13 +6595,13 @@ def Routes():
                 
                 slot_id = 1
                 while current_time < end_time:
-                    slot_end = (datetime.combine(datetime.date.today(), current_time) + 
+                    slot_end = (datetime.combine(date.today(), current_time) + 
                                 datetime.timedelta(minutes=slot_duration)).time()
                     
                     is_available = True
                     for booked in booked_slots:
                         booked_start = convert_mysql_time_to_time(booked.get('appointment_time'))
-                        booked_end_dt = (datetime.combine(datetime.date.today(), booked_start) + 
+                        booked_end_dt = (datetime.combine(date.today(), booked_start) + 
                                         datetime.timedelta(minutes=booked.get('duration', 60)))
                         booked_end = booked_end_dt.time()
                         
@@ -6621,8 +6620,8 @@ def Routes():
                     
                     slot_id += 1
                     
-                    current_time_dt = datetime.combine(datetime.date.today(), current_time)
-                    current_time_dt += datetime.timedelta(minutes=30)
+                    current_time_dt = datetime.combine(date.today(), current_time)
+                    current_time_dt += timedelta(minutes=30)
                     current_time = current_time_dt.time()
                 
                 return available_slots
@@ -10424,12 +10423,12 @@ def Routes():
                         appt_time = appt['appointment_time']
                         
 
-                        if isinstance(appt_date, (datetime.date, datetime)):
+                        if isinstance(appt_date, (date, datetime)):
                             date_str = appt_date.strftime('%Y-%m-%d')
                         else:
                             date_str = str(appt_date)
                             
-                        if isinstance(appt_time, datetime.timedelta):
+                        if isinstance(appt_time, timedelta):
                             total_seconds = int(appt_time.total_seconds())
                             hours, remainder = divmod(total_seconds, 3600)
                             minutes, seconds = divmod(remainder, 60)
