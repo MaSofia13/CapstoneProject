@@ -3967,7 +3967,7 @@ def Routes():
             try:
                 now = datetime.now()
                 today = date.today()
-                
+
                 cursor.execute(
                     """SELECT id, first_name, last_name, profile_image
                     FROM Therapists 
