@@ -553,7 +553,6 @@ def Routes():
                     weekly_completion_rate = completion_result.get('completion_rate', 75) if completion_result else 75
                 except Exception as e:
                     print(f"Error in weekly completion rate query: {e}")
-                    weekly_completion_rate = 75
 
                 try:
                     print("Executing query #15: Get recent patients")

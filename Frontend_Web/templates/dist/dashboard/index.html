@@ -395,7 +395,7 @@
           <div class="card">
             <div class="card-body">
               <h6 class="mb-2 f-w-400 text-muted">This Week's Statistics</h6>
-              <h3 class="mb-3">{{ weekly_completion_rate }}% Completion</h3>
+              <h3 class="mb-3">{{ '{:.1f}'.format(weekly_completion_rate or 0) }}% Completion</h3>
               <div id="income-overview-chart"></div>
             </div>
           </div>
