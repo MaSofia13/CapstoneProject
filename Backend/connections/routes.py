@@ -6562,6 +6562,7 @@ def Routes():
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)
 
+
             try:
                 cursor.execute(
                     "SELECT id, average_session_length FROM Therapists WHERE id = %s",
