@@ -88,7 +88,7 @@ class Login(BaseModel):
 class SessionData(BaseModel):
     user_id: int
     email: str
-    expires: datetime.datetime
+    expires: datetime
 
 class User_Data(BaseModel):
     username: str
