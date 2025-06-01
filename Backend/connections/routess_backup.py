@@ -3,8 +3,10 @@ from connections.mysql_database import *
 from connections.redis_database import *
 from connections.mongo_db import *
 from contextlib import asynccontextmanager
-import traceback
-import os
+import datetime
+from datetime import datetime, timedelta
+import logging
+
 
 UPLOAD_DIR = "uploads/exercise_videos"
 UPLOAD_URL_PATH = "/api/uploads/exercise_videos"
@@ -18,6 +20,9 @@ CHUNK_SIZE = 4 * 1024 * 1024
 MAX_VIDEO_DURATION = 3 * 60 * 60
 
 TEMP_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "temp")
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("recovery_analytics")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -282,8 +287,6 @@ def Routes():
     
     @app.get("/front-page")
     async def front_page(request: Request):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         print(f"Session ID from cookie: {session_id}")
         if not session_id:
@@ -363,7 +366,7 @@ def Routes():
                                     message_with_time['time_ago'] = f"{minutes_ago} min ago"
                                 else:
                                     hours_ago = minutes_ago // 60
-                                    message_with_time['time_ago'] = f"{hours_ago}-{hours_ago}"
+                                    message_with_time['time_ago'] = f"{hours_ago} hr ago"
 
                             elif timestamp.date() == (now - timedelta(days=1)).date():
                                 message_with_time['time_display'] = "Yesterday"
@@ -404,7 +407,7 @@ def Routes():
                 try:
                     print("Executing query #5: Get last month appointments")
                     cursor.execute(
-                        "SELECT COUNT(*) as count FROM Appointments WHERE therapist_id = %s AND created_at < DATE_SUB(CURDATE(), INTERVAL 30 DAY)", 
+                        "SELECT COUNT(*) as count FROM Appointments WHERE therapist_id = %s AND appointment_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)", 
                         (user_id,)
                     )
                     last_month_appointments = cursor.fetchone()
@@ -414,7 +417,7 @@ def Routes():
                     last_month_count = 0
 
                 appointments_monthly_diff = appointments_count - last_month_count
-                appointments_growth = round((appointments_monthly_diff / max(last_month_count, 1)) * 100, 1)
+                appointments_growth = round((appointments_monthly_diff / max(last_month_count, 1)) * 100, 1) if last_month_count > 0 else 0
 
                 try:
                     print("Executing query #6: Get active patients count")
@@ -431,7 +434,7 @@ def Routes():
                 try:
                     print("Executing query #7: Get new patients this month")
                     cursor.execute(
-                        "SELECT COUNT(*) as count FROM Patients WHERE therapist_id = %s AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')", 
+                        "SELECT COUNT(*) as count FROM Patients WHERE therapist_id = %s AND created_at >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')", 
                         (user_id,)
                     )
                     new_patients_result = cursor.fetchone()
@@ -445,8 +448,8 @@ def Routes():
                     cursor.execute(
                         """SELECT COUNT(*) as count FROM Patients 
                         WHERE therapist_id = %s 
-                        AND created_at BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-                        AND DATE_FORMAT(CURDATE(), '%Y-%m-01')""", 
+                        AND created_at BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%%Y-%%m-01')
+                        AND DATE_FORMAT(CURDATE(), '%%Y-%%m-01')""", 
                         (user_id,)
                     )
                     last_month_new_patients = cursor.fetchone()
@@ -455,7 +458,7 @@ def Routes():
                     print(f"Error in last month new patients query: {e}")
                     last_month_new_count = 1
 
-                patient_growth = round((new_patients_monthly / max(last_month_new_count, 1)) * 100, 1)
+                patient_growth = round((new_patients_monthly / max(last_month_new_count, 1)) * 100, 1) if last_month_new_count > 0 else 0
 
                 try:
                     print("Executing query #9: Get treatment plans count")
@@ -472,7 +475,7 @@ def Routes():
                 try:
                     print("Executing query #10: Get new plans this month")
                     cursor.execute(
-                        "SELECT COUNT(*) as count FROM TreatmentPlans WHERE therapist_id = %s AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')", 
+                        "SELECT COUNT(*) as count FROM TreatmentPlans WHERE therapist_id = %s AND created_at >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')", 
                         (user_id,)
                     )
                     new_plans_result = cursor.fetchone()
@@ -486,8 +489,8 @@ def Routes():
                     cursor.execute(
                         """SELECT COUNT(*) as count FROM TreatmentPlans 
                         WHERE therapist_id = %s 
-                        AND created_at BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-                        AND DATE_FORMAT(CURDATE(), '%Y-%m-01')""", 
+                        AND created_at BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%%Y-%%m-01')
+                        AND DATE_FORMAT(CURDATE(), '%%Y-%%m-01')""", 
                         (user_id,)
                     )
                     last_month_plans = cursor.fetchone()
@@ -496,7 +499,7 @@ def Routes():
                     print(f"Error in last month plans query: {e}")
                     last_month_plans_count = 1
 
-                plans_growth = round((new_plans_monthly / max(last_month_plans_count, 1)) * 100, 1)
+                plans_growth = round((new_plans_monthly / max(last_month_plans_count, 1)) * 100, 1) if last_month_plans_count > 0 else 0
 
                 try:
                     print("Executing query #12: Get average adherence rate")
@@ -516,8 +519,8 @@ def Routes():
                         """SELECT AVG(adherence_rate) as avg_rate 
                         FROM PatientMetrics 
                         WHERE therapist_id = %s 
-                        AND measurement_date BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
-                        AND DATE_FORMAT(CURDATE(), '%Y-%m-01')""", 
+                        AND measurement_date BETWEEN DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%%Y-%%m-01')
+                        AND DATE_FORMAT(CURDATE(), '%%Y-%%m-01')""", 
                         (user_id,)
                     )
                     last_month_adherence = cursor.fetchone()
@@ -539,13 +542,22 @@ def Routes():
                     adherence_direction = "Down"
 
                 try:
-                    print("Executing query #14: Get weekly completion rate - USING SIMPLIFIED QUERY")
-                    cursor.execute("SELECT 75 as completion_rate")
+                    print("Executing query #14: Get weekly completion rate")
+                    cursor.execute(
+                        """SELECT 
+                            ROUND((COUNT(CASE WHEN pep.sets_completed >= tpe.sets AND pep.repetitions_completed >= tpe.repetitions THEN 1 END) / 
+                            COUNT(*)) * 100) AS completion_rate
+                        FROM PatientExerciseProgress pep
+                        JOIN TreatmentPlanExercises tpe ON pep.plan_exercise_id = tpe.plan_exercise_id
+                        JOIN TreatmentPlans tp ON tpe.plan_id = tp.plan_id
+                        WHERE tp.therapist_id = %s
+                        AND pep.completion_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)""", 
+                        (user_id,)
+                    )
                     completion_result = cursor.fetchone()
-                    weekly_completion_rate = round(completion_result.get('completion_rate', 0), 0) if completion_result else 75
+                    weekly_completion_rate = completion_result.get('completion_rate', 75) if completion_result else 75
                 except Exception as e:
-                    print(f"Error even with simplified query: {e}")
-                    weekly_completion_rate = 75
+                    print(f"Error in weekly completion rate query: {e}")
 
                 try:
                     print("Executing query #15: Get recent patients")
@@ -555,7 +567,7 @@ def Routes():
                         FROM Patients p
                         LEFT JOIN PatientMetrics pm ON p.patient_id = pm.patient_id
                         WHERE p.therapist_id = %s
-                        GROUP BY p.patient_id
+                        GROUP BY p.patient_id, p.first_name, p.last_name, p.diagnosis, p.status
                         ORDER BY p.created_at DESC
                         LIMIT 5""", 
                         (user_id,)
@@ -590,8 +602,28 @@ def Routes():
                     print(f"Error in average recovery rate query: {e}")
                     avg_recovery_rate = 0
 
-                print("Setting hardcoded value for exercise completion rate")
-                exercise_completion_rate = 80.5
+                try:
+                    print("Executing query #17: Get exercise completion rate")
+                    cursor.execute(
+                        """SELECT 
+                            ROUND(AVG(
+                                CASE 
+                                    WHEN pep.sets_completed >= tpe.sets AND pep.repetitions_completed >= tpe.repetitions THEN 100
+                                    WHEN pep.sets_completed = 0 AND pep.repetitions_completed = 0 THEN 0
+                                    ELSE (pep.sets_completed * pep.repetitions_completed) / (tpe.sets * tpe.repetitions) * 100
+                                END
+                            )) AS exercise_completion_rate
+                        FROM PatientExerciseProgress pep
+                        JOIN TreatmentPlanExercises tpe ON pep.plan_exercise_id = tpe.plan_exercise_id
+                        JOIN TreatmentPlans tp ON tpe.plan_id = tp.plan_id
+                        WHERE tp.therapist_id = %s""", 
+                        (user_id,)
+                    )
+                    completion_result = cursor.fetchone()
+                    exercise_completion_rate = completion_result.get('exercise_completion_rate', 80.5) if completion_result else 80.5
+                except Exception as e:
+                    print(f"Error in exercise completion rate query: {e}")
+                    exercise_completion_rate = 80.5
 
                 try:
                     print("Executing query #18: Get average feedback rating")
@@ -643,7 +675,7 @@ def Routes():
                         UNION
                         (SELECT 'report-medical' as type, 'Progress Report Updated' as title, 
                             CONCAT(p.first_name, ' ', p.last_name) as primary_detail, 
-                            CONCAT('+', pm.recovery_progress, '% improvement') as secondary_detail, 
+                            CONCAT('+', COALESCE(pm.recovery_progress, 0), '%% improvement') as secondary_detail, 
                             pm.created_at as timestamp,
                             CONCAT('/patients/', p.patient_id) as link
                         FROM PatientMetrics pm
@@ -690,11 +722,11 @@ def Routes():
                     print("Executing query #21: Get weekly activity")
                     cursor.execute(
                         """SELECT 
-                            DATE_FORMAT(completion_date, '%a') as day, 
+                            DATE_FORMAT(completion_date, '%%a') as day, 
                             COUNT(*) as count
                         FROM PatientExerciseProgress
                         WHERE completion_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-                        GROUP BY DATE_FORMAT(completion_date, '%a')
+                        GROUP BY DATE_FORMAT(completion_date, '%%a')
                         ORDER BY FIELD(day, 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')"""
                     )
                     weekly_activity = cursor.fetchall()
@@ -715,11 +747,11 @@ def Routes():
                     print("Executing query #22: Get monthly activity")
                     cursor.execute(
                         """SELECT 
-                            DATE_FORMAT(completion_date, '%d') as date, 
+                            DATE_FORMAT(completion_date, '%%d') as date, 
                             COUNT(*) as count
                         FROM PatientExerciseProgress
                         WHERE completion_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                        GROUP BY DATE_FORMAT(completion_date, '%d')
+                        GROUP BY DATE_FORMAT(completion_date, '%%d')
                         ORDER BY date"""
                     )
                     monthly_activity = cursor.fetchall()
@@ -732,23 +764,54 @@ def Routes():
                     print("Executing query #23: Get progress chart data")
                     cursor.execute(
                         """SELECT 
-                            DATE_FORMAT(measurement_date, '%d %b') as date,
+                            DATE(measurement_date) as measurement_date,
                             AVG(functionality_score) as score 
                         FROM PatientMetrics 
                         WHERE measurement_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                         AND therapist_id = %s
-                        GROUP BY DATE_FORMAT(measurement_date, '%d %b')
-                        ORDER BY measurement_date""", 
+                        GROUP BY DATE(measurement_date)
+                        ORDER BY DATE(measurement_date)""", 
                         (user_id,)
                     )
                     progress_chart_data = cursor.fetchall()
-                    progress_data = [{'date': record.get('date'), 'score': float(record.get('score', 0)) if record.get('score') is not None else 0} for record in progress_chart_data]
+                    progress_data = [{
+                        'date': record.get('measurement_date').strftime('%d %b'), 
+                        'score': float(record.get('score', 0)) if record.get('score') is not None else 0
+                    } for record in progress_chart_data]
                 except Exception as e:
                     print(f"Error in progress chart data query: {e}")
                     progress_data = []
 
-                print("Setting hardcoded values for donut data")
-                donut_data = {'Completed': 65, 'Partial': 25, 'Missed': 10}
+                try:
+                    print("Executing query #24: Get donut data")
+                    cursor.execute(
+                        """SELECT 
+                            status,
+                            COUNT(*) AS count
+                        FROM (
+                            SELECT 
+                                CASE 
+                                    WHEN pep.sets_completed >= tpe.sets AND pep.repetitions_completed >= tpe.repetitions THEN 'Completed'
+                                    WHEN pep.sets_completed = 0 AND pep.repetitions_completed = 0 THEN 'Missed'
+                                    ELSE 'Partial'
+                                END AS status
+                            FROM PatientExerciseProgress pep
+                            JOIN TreatmentPlanExercises tpe ON pep.plan_exercise_id = tpe.plan_exercise_id
+                            JOIN TreatmentPlans tp ON tpe.plan_id = tp.plan_id
+                            WHERE tp.therapist_id = %s
+                        ) AS status_table
+                        GROUP BY status""", 
+                        (user_id,)
+                    )
+                    donut_result = cursor.fetchall()
+                    
+                    donut_data = {'Completed': 0, 'Partial': 0, 'Missed': 0}
+                    for row in donut_result:
+                        status = row['status']
+                        donut_data[status] = row.get('count', 0)
+                except Exception as e:
+                    print(f"Error in donut data query: {e}")
+                    donut_data = {'Completed': 0, 'Partial': 0, 'Missed': 0}
 
                 print("Rendering dashboard template with dynamic data")
                 return templates.TemplateResponse(
@@ -801,7 +864,7 @@ def Routes():
             print(f"Error in front-page route: {e}")
             print(f"Traceback: {traceback.format_exc()}")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
-    
+
     @app.get("/analytics/recovery")
     async def recovery_analytics(request: Request):
         session_id = request.cookies.get("session_id")
@@ -809,96 +872,113 @@ def Routes():
             return RedirectResponse(url="/Therapist_Login", status_code=303)
         try:
             session_data = await get_redis_session(session_id)
-            if not session_data:
+            if not session_data or "user_id" not in session_data:
                 return RedirectResponse(url="/Therapist_Login", status_code=303)
-
+            therapist_id = int(session_data["user_id"].strip())
             db = get_Mysql_db()
-            cursor = db.cursor()
+            cursor = db.cursor(pymysql.cursors.DictCursor)
             try:
-
                 cursor.execute(
                     """SELECT 
-                        DATE_FORMAT(measurement_date, '%d %b') as date,
-                        AVG(recovery_progress) as progress
+                        DATE_FORMAT(measurement_date, '%%d %%b') AS date,
+                        COALESCE(AVG(recovery_progress), 0) AS progress
                     FROM PatientMetrics 
                     WHERE measurement_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
                     AND therapist_id = %s
-                    GROUP BY DATE_FORMAT(measurement_date, '%d %b')
-                    ORDER BY measurement_date""", 
-                    (session_data["user_id"],)
+                    GROUP BY DATE_FORMAT(measurement_date, '%%d %%b')
+                    ORDER BY MIN(measurement_date)""",
+                    (therapist_id,)
                 )
-                recovery_trend = cursor.fetchall()
-                
+                recovery_trend = cursor.fetchall() or []
 
                 cursor.execute(
                     """SELECT 
-                        p.diagnosis,
-                        AVG(pm.recovery_progress) as avg_progress,
-                        COUNT(DISTINCT p.patient_id) as patient_count
+                        COALESCE(p.diagnosis, 'Unknown') AS diagnosis,
+                        COALESCE(AVG(pm.recovery_progress), 0) AS avg_progress,
+                        COUNT(DISTINCT p.patient_id) AS patient_count
                     FROM PatientMetrics pm
                     JOIN Patients p ON pm.patient_id = p.patient_id
                     WHERE pm.therapist_id = %s
                     GROUP BY p.diagnosis
-                    ORDER BY avg_progress DESC""", 
-                    (session_data["user_id"],)
+                    ORDER BY avg_progress DESC""",
+                    (therapist_id,)
                 )
-                recovery_by_diagnosis = cursor.fetchall()
-                
+                recovery_by_diagnosis = cursor.fetchall() or []
 
                 cursor.execute(
                     """SELECT 
                         p.first_name, 
                         p.last_name, 
-                        p.diagnosis, 
-                        AVG(pm.recovery_progress) as avg_progress
+                        COALESCE(p.diagnosis, 'Unknown') AS diagnosis, 
+                        COALESCE(AVG(pm.recovery_progress), 0) AS avg_progress
                     FROM PatientMetrics pm
                     JOIN Patients p ON pm.patient_id = p.patient_id
                     WHERE pm.therapist_id = %s
-                    GROUP BY p.patient_id
+                    GROUP BY p.patient_id, p.first_name, p.last_name, p.diagnosis
                     ORDER BY avg_progress DESC
-                    LIMIT 5""", 
-                    (session_data["user_id"],)
+                    LIMIT 5""",
+                    (therapist_id,)
                 )
-                top_recovery_patients = cursor.fetchall()
-                
+                top_recovery_patients = cursor.fetchall() or []
+
                 cursor.execute(
                     """SELECT 
                         p.first_name, 
                         p.last_name, 
-                        p.diagnosis, 
-                        AVG(pm.recovery_progress) as avg_progress
+                        COALESCE(p.diagnosis, 'Unknown') AS diagnosis, 
+                        COALESCE(AVG(pm.recovery_progress), 0) AS avg_progress
                     FROM PatientMetrics pm
                     JOIN Patients p ON pm.patient_id = p.patient_id
                     WHERE pm.therapist_id = %s
-                    GROUP BY p.patient_id
+                    GROUP BY p.patient_id, p.first_name, p.last_name, p.diagnosis
                     ORDER BY avg_progress ASC
-                    LIMIT 5""", 
-                    (session_data["user_id"],)
+                    LIMIT 5""",
+                    (therapist_id,)
                 )
-                bottom_recovery_patients = cursor.fetchall()
-                
-                return JSONResponse(content={
+                bottom_recovery_patients = cursor.fetchall() or []
+
+                response = {
                     "success": True,
-                    "recovery_trend": [{"date": record["date"], "progress": float(record["progress"]) if record["progress"] is not None else 0} for record in recovery_trend],
-                    "recovery_by_diagnosis": [{"diagnosis": record["diagnosis"], "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0, "patient_count": record["patient_count"]} for record in recovery_by_diagnosis],
-                    "top_recovery_patients": [{"name": f"{record['first_name']} {record['last_name']}", "diagnosis": record["diagnosis"], "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0} for record in top_recovery_patients],
-                    "bottom_recovery_patients": [{"name": f"{record['first_name']} {record['last_name']}", "diagnosis": record["diagnosis"], "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0} for record in bottom_recovery_patients]
-                })
-                
-            except Exception as e:
-                print(f"Database error in recovery analytics route: {e}")
+                    "recovery_trend": [
+                        {"date": r["date"] or "Unknown", "progress": float(r["progress"] or 0)}
+                        for r in recovery_trend
+                    ],
+                    "recovery_by_diagnosis": [
+                        {
+                            "diagnosis": r["diagnosis"] or "Unknown",
+                            "avg_progress": float(r["avg_progress"] or 0),
+                            "patient_count": int(r["patient_count"] or 0),
+                        }
+                        for r in recovery_by_diagnosis
+                    ],
+                    "top_recovery_patients": [
+                        {
+                            "name": f"{r['first_name'] or 'Unknown'} {r['last_name'] or ''}".strip(),
+                            "diagnosis": r["diagnosis"] or "Unknown",
+                            "avg_progress": float(r["avg_progress"] or 0),
+                        }
+                        for r in top_recovery_patients
+                    ],
+                    "bottom_recovery_patients": [
+                        {
+                            "name": f"{r['first_name'] or 'Unknown'} {r['last_name'] or ''}".strip(),
+                            "diagnosis": r["diagnosis"] or "Unknown",
+                            "avg_progress": float(r["avg_progress"] or 0),
+                        }
+                        for r in bottom_recovery_patients
+                    ],
+                }
+                return JSONResponse(content=response)
+            except pymysql.Error as e:
                 return JSONResponse(content={"success": False, "error": str(e)}, status_code=500)
             finally:
                 cursor.close()
                 db.close()
         except Exception as e:
-            print(f"Error in recovery analytics route: {e}")
             return JSONResponse(content={"success": False, "error": str(e)}, status_code=500)
-
+        
     @app.get("/messages")
     async def messages_page(request: Request, search: str = None):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
@@ -1093,8 +1173,6 @@ def Routes():
     
     @app.get("/messages/{message_id}")
     async def view_message(request: Request, message_id: int):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
@@ -1297,8 +1375,6 @@ def Routes():
 
     @app.post("/messages/reply/{message_id}")
     async def reply_to_message(request: Request, message_id: int):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return {"success": False, "message": "Not authenticated"}
@@ -2561,8 +2637,6 @@ def Routes():
         password: str = Form(...),
         remember: bool = Form(False)
     ):
-        import traceback
-        
         db = get_Mysql_db()
         cursor = None
         try:
@@ -3206,8 +3280,6 @@ def Routes():
     
     @app.get("/exercises/submissions/{submission_id}")
     async def view_exercise_submission(request: Request, submission_id: int):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
@@ -3311,8 +3383,6 @@ def Routes():
         feedback: str = Form(...),
         rating: str = Form(...)
     ):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
@@ -3379,8 +3449,6 @@ def Routes():
         
     @app.get("/exercises/patient-submissions/{patient_id}")
     async def patient_exercise_submissions(request: Request, patient_id: int):
-        import traceback
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
@@ -3898,8 +3966,8 @@ def Routes():
 
             try:
                 now = datetime.now()
-                today = datetime.date.today()
-                
+                today = date.today()
+
                 cursor.execute(
                     """SELECT id, first_name, last_name, profile_image
                     FROM Therapists 
@@ -4157,21 +4225,24 @@ def Routes():
                     (patient_id, session_data["user_id"])
                 )
                 patient = cursor.fetchone()
-                
                 if not patient:
                     return RedirectResponse(url="/patients?error=not_found", status_code=303)
                 
-                if patient['date_of_birth'] and isinstance(patient['date_of_birth'], datetime.date):
-                    patient['formatted_dob'] = patient['date_of_birth'].strftime('%Y-%m-%d')
+                patient = list(patient)
+
+                if patient[7] and isinstance(patient[7], datetime.date):
+                    patient[7] = patient[7].strftime('%Y-%m-%d')
                 else:
-                    patient['formatted_dob'] = None
+                    patient[7] = None
+                    
+                patient = tuple(patient)
                 
                 cursor.execute(
                     "SELECT COUNT(*) as count FROM Messages WHERE recipient_id = %s AND recipient_type = 'therapist' AND is_read = FALSE",
                     (session_data["user_id"],)
                 )
                 unread_count_result = cursor.fetchone()
-                unread_messages_count = unread_count_result['count'] if unread_count_result else 0
+                unread_messages_count = unread_count_result[0] if unread_count_result else 0
                 
                 base_url = request.url.scheme + "://" + request.url.netloc
                 therapist_data = await get_therapist_data(user["user_id"])
@@ -4181,8 +4252,8 @@ def Routes():
                     {
                         "request": request,
                         "therapist": therapist_data,
-                        "first_name": therapist["first_name"],
-                        "last_name": therapist["last_name"],
+                        "first_name": therapist[0],
+                        "last_name": therapist[1],
                         "patient": patient,
                         "unread_messages_count": unread_messages_count,
                         "base_url": base_url  
@@ -4971,8 +5042,6 @@ def Routes():
 
     def process_appointment_for_calendar(appointment):
         """Process an appointment object to make it suitable for calendar display"""
-        from datetime import datetime, date, time, timedelta 
-        
         processed = dict(appointment)
         
 
@@ -5053,9 +5122,6 @@ def Routes():
         return processed
 
     def serialize_datetime(obj):
-        """JSON serializer for datetime objects not serializable by default json code"""
-        from datetime import datetime, date, time, timedelta
-        
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
         elif isinstance(obj, time):
@@ -6186,7 +6252,6 @@ def Routes():
             form = await request.form()
             print("RECEIVED FORM DATA:", dict(form))
             
-
             patient_id = form.get("patient_id")
             plan_name = form.get("plan_name")
             description = form.get("description", "")
@@ -6205,7 +6270,6 @@ def Routes():
                 
                 print(f"ERROR: {error_msg}")
                 
-
                 db = get_Mysql_db()
                 cursor = db.cursor()
                 cursor.execute("SELECT patient_id, first_name, last_name FROM Patients WHERE therapist_id = %s", 
@@ -6231,7 +6295,6 @@ def Routes():
                     }
                 )
             
-
             exercises = form.getlist("exercises[]")
             sets = form.getlist("sets[]")
             repetitions = form.getlist("repetitions[]")
@@ -6245,13 +6308,11 @@ def Routes():
             print(f"Frequencies: {frequencies}")
             print(f"Durations: {durations}")
             
-
             db = get_Mysql_db()
             cursor = None
             
             try:
                 cursor = db.cursor()
-                
 
                 cursor.execute(
                     """INSERT INTO TreatmentPlans 
@@ -6336,8 +6397,6 @@ def Routes():
     @app.get("/therapists")
     async def get_therapists():
         """API endpoint to get a list of all therapists for the mobile app"""
-        import traceback
-        
         try:
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)
@@ -6407,8 +6466,6 @@ def Routes():
             
     @app.get("/therapists/{id}")
     async def get_therapist_details(id: int):
-        import traceback
-        
         try:
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)
@@ -6498,7 +6555,6 @@ def Routes():
     @app.get("/therapists/{id}/availability")
     async def get_therapist_availability(id: int, date: str = None):
         """API endpoint to get available time slots for a therapist"""
-        import traceback
         
         try:
             if not date:
@@ -6591,7 +6647,6 @@ def Routes():
 
     @app.post("/api/book-appointment")
     async def book_appointment(appointment_request: AppointmentRequest, request: Request):
-        import traceback
         
         session_id = request.cookies.get("session_id")
         print(f"Appointment request - Cookie session ID: {session_id}")
@@ -6808,7 +6863,6 @@ def Routes():
                 content={"status": "invalid", "detail": f"Server error: {str(e)}"}
             )
 
-
     @app.post("/therapists/{id}/rate")
     async def rate_therapist(request: Request, id: int, rating: dict):
         """API endpoint to rate a therapist"""
@@ -6889,7 +6943,6 @@ def Routes():
                     )
                 
                 db.commit()
-                
  
                 cursor.execute(
                     """UPDATE Therapists t
@@ -6966,7 +7019,6 @@ def Routes():
  
                 await r.set(f"reset:{reset_token}", email_address, ex=86400)
  
- 
                 print(f"Password reset requested for {email_address}. Token: {reset_token}")
                 
                 return {"status": "valid", "message": "If this email is registered, you will receive reset instructions"}
@@ -7024,7 +7076,6 @@ def Routes():
                         content={"detail": "User not found"}
                     )
                 
- 
                 cursor.execute(
                     """SELECT p.*, t.first_name as therapist_first_name, t.last_name as therapist_last_name
                     FROM Patients p
@@ -7245,7 +7296,7 @@ def Routes():
                 
             except Exception as e:
                 print(f"Database error in get user therapist data API: {e}")
-                import traceback
+                
                 print(f"Traceback: {traceback.format_exc()}")
                 return JSONResponse(
                     status_code=500,
@@ -7258,7 +7309,7 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error in get user therapist data API: {e}")
-            import traceback
+            
             print(f"Traceback: {traceback.format_exc()}")
             return JSONResponse(
                 status_code=500,
@@ -7275,7 +7326,7 @@ def Routes():
     @app.get("/api/user/appointments")
     async def get_user_appointments_data(request: Request):
         """API endpoint to get appointments for the current logged-in user"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -7385,7 +7436,7 @@ def Routes():
     @app.get("/api/user/treatment-plans")
     async def get_user_treatment_plans(request: Request):
         """API endpoint to get treatment plans for the current logged-in user"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -7534,7 +7585,7 @@ def Routes():
     @app.get("/api/user/exercises/progress")
     async def get_user_exercises_progress(request: Request):
         """API endpoint to get overall user progress across all exercises and treatment plans"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -7853,7 +7904,7 @@ def Routes():
         exercise_id: int
     ):
         """API endpoint to get detailed information about a specific exercise"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -8152,7 +8203,7 @@ def Routes():
         completed: bool
     ):
         """API endpoint to update the completion status of an exercise in a treatment plan"""
-        import traceback
+        
         
         print(f"Received update request for exercise {plan_exercise_id}, completed={completed}")
         
@@ -8910,7 +8961,7 @@ def Routes():
         exercise_id: int
     ):
         """API endpoint to get history of all completions of a specific exercise across all treatment plans"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -9072,7 +9123,7 @@ def Routes():
     @app.get("/api/therapists/{therapist_id}/details")
     async def get_therapist_details(therapist_id: int):
         """API endpoint to get detailed information about a specific therapist"""
-        import traceback
+        
         
         try:
             db = get_Mysql_db()
@@ -9396,7 +9447,7 @@ def Routes():
     @app.get("/messages/therapist/{therapist_id}")
     async def get_therapist_messages(request: Request, therapist_id: int):
         """API endpoint to get messages between the current user/patient and a specific therapist"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -9529,7 +9580,7 @@ def Routes():
 
     @app.post("/messages/send-to-therapist")
     async def send_message_to_therapist(request: Request):
-        import traceback
+        
         try:
             session_id = request.cookies.get("session_id")
             if not session_id:
@@ -9973,7 +10024,7 @@ def Routes():
 
             try:
                 now = datetime.now()
-                today = datetime.date.today()
+                today = date.today()
 
                 cursor.execute(
                     """SELECT id, first_name, last_name, profile_image
@@ -10673,7 +10724,7 @@ def Routes():
         video: UploadFile = File(...)
     ):
         """API endpoint to upload an exercise video for therapist review with enhanced progress handling"""
-        import traceback
+        
         
         print(f"Received video upload request: exercise_id={exercise_id}, treatment_plan_id={treatment_plan_id}")
         print(f"File name: {video.filename}")
@@ -10913,7 +10964,7 @@ def Routes():
     @app.get("/api/user/video-submissions")
     async def get_user_video_submissions(request: Request):
         """API endpoint to get all video submissions for the current user"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -11013,7 +11064,7 @@ def Routes():
     @app.get("/api/video-submissions/{submission_id}")
     async def get_video_submission_details(submission_id: int, request: Request):
         """API endpoint to get detailed information about a specific video submission"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -11112,7 +11163,7 @@ def Routes():
     @app.delete("/api/video-submissions/{submission_id}")
     async def delete_video_submission(submission_id: int, request: Request):
         """API endpoint to delete a video submission"""
-        import traceback
+        
         
         session_id = request.cookies.get("session_id")
         if not session_id:
@@ -11483,7 +11534,7 @@ def Routes():
                         print(f"Background processing completed for submission {submission_id}")
                     except Exception as e:
                         print(f"Error processing video: {e}")
-                        import traceback
+                        
                         traceback.print_exc()
                 
                 thread = threading.Thread(target=process_in_background)
@@ -11499,7 +11550,7 @@ def Routes():
                 })
             except Exception as e:
                 print(f"Database error in process_exercise_video: {e}")
-                import traceback
+                
                 traceback.print_exc()
                 return JSONResponse(status_code=500, content={"error": f"Database error: {str(e)}"})
             finally:
@@ -11509,7 +11560,7 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error processing video: {e}")
-            import traceback
+            
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
     
@@ -11575,7 +11626,7 @@ def Routes():
                     })
             except Exception as e:
                 print(f"Database error in processed_video_status: {e}")
-                import traceback
+                
                 traceback.print_exc()
                 return JSONResponse(status_code=500, content={"error": f"Database error: {str(e)}"})
             finally:
@@ -11585,7 +11636,7 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error checking processed video status: {e}")
-            import traceback
+            
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
 
@@ -11679,7 +11730,7 @@ def Routes():
                     })
             except Exception as e:
                 print(f"Database error in stop_exercise_video_processing: {e}")
-                import traceback
+                
                 traceback.print_exc()
                 return JSONResponse(status_code=500, content={"error": f"Database error: {str(e)}"})
             finally:
@@ -11689,7 +11740,7 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error stopping video processing: {e}")
-            import traceback
+            
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
 
@@ -11720,9 +11771,6 @@ def Routes():
                     print(f"Error removing existing file: {e}")
             
 
-            import cv2
-            import mediapipe as mp
-            
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
                 print(f"Error: Could not open video file {video_path}")
@@ -11840,7 +11888,7 @@ def Routes():
             
         except Exception as e:
             print(f"Error in video processing: {e}")
-            import traceback
+            
             traceback.print_exc()
             return None
         
@@ -11880,7 +11928,7 @@ def Routes():
         
         except Exception as e:
             print(f"Error downloading file: {e}")
-            import traceback
+            
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
         
@@ -11930,7 +11978,7 @@ def Routes():
                 )
             except Exception as e:
                 print(f"Database error in download_video: {e}")
-                import traceback
+                
                 traceback.print_exc()
                 return JSONResponse(status_code=500, content={"error": f"Database error: {str(e)}"})
             finally:
@@ -11940,7 +11988,7 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error downloading video: {e}")
-            import traceback
+            
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
         
@@ -12011,7 +12059,7 @@ def Routes():
                         print(f"Background processing completed for submission {submission_id}")
                     except Exception as e:
                         print(f"Error processing video: {e}")
-                        import traceback
+                        
                         traceback.print_exc()
                 
                 thread = threading.Thread(target=process_in_background)
@@ -12027,7 +12075,6 @@ def Routes():
                 })
             except Exception as e:
                 print(f"Database error in regenerate_exercise_video: {e}")
-                import traceback
                 traceback.print_exc()
                 return JSONResponse(status_code=500, content={"error": f"Database error: {str(e)}"})
             finally:
@@ -12037,7 +12084,6 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error regenerating video: {e}")
-            import traceback
             traceback.print_exc()
             return JSONResponse(status_code=500, content={"error": f"Server error: {str(e)}"})
         
