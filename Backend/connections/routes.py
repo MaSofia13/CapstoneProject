@@ -4,7 +4,7 @@ from connections.redis_database import *
 from connections.mongo_db import *
 from contextlib import asynccontextmanager
 import datetime
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import logging
 
 
@@ -4036,9 +4036,9 @@ def Routes():
                     for key, value in appt.items():
                         if isinstance(value, datetime):
                             processed_appt[key] = value
-                        elif isinstance(value, datetime.date):
+                        elif isinstance(value, date):
                             processed_appt[key] = value
-                        elif isinstance(value, datetime.timedelta):
+                        elif isinstance(value, timedelta):
                             processed_appt[key] = value
                         elif isinstance(value, bytes):
                             processed_appt[key] = value.decode('utf-8')
@@ -4092,9 +4092,9 @@ def Routes():
                     for key, value in note.items():
                         if isinstance(value, datetime):
                             processed_note[key] = value.strftime('%Y-%m-%d %H:%M:%S')
-                        elif isinstance(value, datetime.date):
+                        elif isinstance(value, date):
                             processed_note[key] = value.strftime('%Y-%m-%d')
-                        elif isinstance(value, datetime.timedelta):
+                        elif isinstance(value, timedelta):
                             total_seconds = int(value.total_seconds())
                             hours, remainder = divmod(total_seconds, 3600)
                             minutes, seconds = divmod(remainder, 60)
@@ -10387,9 +10387,9 @@ def Routes():
 
                         if isinstance(value, datetime):
                             processed_note[key] = value.strftime('%Y-%m-%d %H:%M:%S')
-                        elif isinstance(value, datetime.date):
+                        elif isinstance(value, date):
                             processed_note[key] = value.strftime('%Y-%m-%d')
-                        elif isinstance(value, datetime.timedelta):
+                        elif isinstance(value, timedelta):
                             total_seconds = int(value.total_seconds())
                             hours, remainder = divmod(total_seconds, 3600)
                             minutes, seconds = divmod(remainder, 60)
@@ -10465,9 +10465,9 @@ def Routes():
                     for key, value in appt.items():
                         if isinstance(value, datetime):
                             processed_appt[key] = value.strftime('%Y-%m-%d %H:%M:%S')
-                        elif isinstance(value, datetime.date):
+                        elif isinstance(value, date):
                             processed_appt[key] = value.strftime('%Y-%m-%d')
-                        elif isinstance(value, datetime.timedelta):
+                        elif isinstance(value, timedelta):
                             total_seconds = int(value.total_seconds())
                             hours, remainder = divmod(total_seconds, 3600)
                             minutes, seconds = divmod(remainder, 60)
