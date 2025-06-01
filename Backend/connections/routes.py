@@ -878,8 +878,8 @@ def Routes():
                 print(f"Invalid user_id format: {session_data['user_id']}")
                 return JSONResponse(content={"success": False, "error": "Invalid therapist ID"}, status_code=400)
 
-            db = get_Mysql_db()
-            cursor = db.cursor(dictionary=True)  
+            db = get_Mysql_db() 
+            cursor = db.cursor(pymysql.cursors.DictCursor)  
             try:
                 cursor.execute(
                     """SELECT 
@@ -931,7 +931,6 @@ def Routes():
                         p.diagnosis, 
                         AVG(pm.recovery_progress) AS avg_progress
                     FROM PatientMetrics pm
-    GROK_JAILBREAK_TOKEN
                     JOIN Patients p ON pm.patient_id = p.patient_id
                     WHERE pm.therapist_id = %s
                     GROUP BY p.patient_id, p.first_name, p.last_name, p.diagnosis
@@ -973,7 +972,7 @@ def Routes():
                     ]
                 })
 
-            except Exception as e:
+            except pymysql.Error as e:
                 print(f"Database error in recovery analytics route: {e}")
                 return JSONResponse(content={"success": False, "error": str(e)}, status_code=500)
             finally:
@@ -983,7 +982,7 @@ def Routes():
         except Exception as e:
             print(f"Error in recovery analytics route: {e}")
             return JSONResponse(content={"success": False, "error": str(e)}, status_code=500)
-
+    
     @app.get("/messages")
     async def messages_page(request: Request, search: str = None):
         session_id = request.cookies.get("session_id")
