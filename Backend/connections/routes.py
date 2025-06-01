@@ -2591,9 +2591,9 @@ def Routes():
         session_id = secrets.token_hex(16)
 
         if remember:
-            expires = datetime.now() + datetime.timedelta(days=30)
+            expires = datetime.now() + timedelta(days=30)
         else:
-            expires = datetime.now() + datetime.timedelta(hours=24)
+            expires = datetime.now() + timedelta(hours=24)
 
         active_sessions[session_id] = SessionData(
             user_id=user_id,
@@ -5614,7 +5614,7 @@ def Routes():
                 appointment_time = appointment.get('appointment_time')
                 if isinstance(appointment_time, datetime.time):
                     formatted_time = appointment_time.strftime('%H:%M')
-                elif isinstance(appointment_time, datetime.timedelta):
+                elif isinstance(appointment_time, timedelta):
                     total_seconds = appointment_time.total_seconds()
                     hours = int(total_seconds // 3600)
                     minutes = int((total_seconds % 3600) // 60)
@@ -6547,7 +6547,7 @@ def Routes():
 
     def convert_mysql_time_to_time(mysql_time):
         """Convert MySQL TIME (timedelta) to datetime.time"""
-        if isinstance(mysql_time, datetime.timedelta):
+        if isinstance(mysql_time, timedelta):
             return (datetime.min + mysql_time).time()
         return mysql_time
 
@@ -6596,13 +6596,13 @@ def Routes():
                 slot_id = 1
                 while current_time < end_time:
                     slot_end = (datetime.combine(date.today(), current_time) + 
-                                datetime.timedelta(minutes=slot_duration)).time()
+                                timedelta(minutes=slot_duration)).time()
                     
                     is_available = True
                     for booked in booked_slots:
                         booked_start = convert_mysql_time_to_time(booked.get('appointment_time'))
                         booked_end_dt = (datetime.combine(date.today(), booked_start) + 
-                                        datetime.timedelta(minutes=booked.get('duration', 60)))
+                                        timedelta(minutes=booked.get('duration', 60)))
                         booked_end = booked_end_dt.time()
                         
                         if (current_time < booked_end and slot_end > booked_start):
@@ -7010,7 +7010,7 @@ def Routes():
                         return {"status": "valid", "message": "If this email is registered, you will receive reset instructions"}
                 
  
-                expiry = datetime.now() + datetime.timedelta(hours=24)
+                expiry = datetime.now() + timedelta(hours=24)
                 
  
                 reset_token = secrets.token_hex(32)
