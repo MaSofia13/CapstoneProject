@@ -782,16 +782,20 @@ def Routes():
                     print("Executing query #24: Get donut data")
                     cursor.execute(
                         """SELECT 
-                            CASE 
-                                WHEN pep.sets_completed >= tpe.sets AND pep.repetitions_completed >= tpe.repetitions THEN 'Completed'
-                                WHEN pep.sets_completed = 0 AND pep.repetitions_completed = 0 THEN 'Missed'
-                                ELSE 'Partial'
-                            END AS status,
+                            status,
                             COUNT(*) AS count
-                        FROM PatientExerciseProgress pep
-                        JOIN TreatmentPlanExercises tpe ON pep.plan_exercise_id = tpe.plan_exercise_id
-                        JOIN TreatmentPlans tp ON tpe.plan_id = tp.plan_id
-                        WHERE tp.therapist_id = %s
+                        FROM (
+                            SELECT 
+                                CASE 
+                                    WHEN pep.sets_completed >= tpe.sets AND pep.repetitions_completed >= tpe.repetitions THEN 'Completed'
+                                    WHEN pep.sets_completed = 0 AND pep.repetitions_completed = 0 THEN 'Missed'
+                                    ELSE 'Partial'
+                                END AS status
+                            FROM PatientExerciseProgress pep
+                            JOIN TreatmentPlanExercises tpe ON pep.plan_exercise_id = tpe.plan_exercise_id
+                            JOIN TreatmentPlans tp ON tpe.plan_id = tp.plan_id
+                            WHERE tp.therapist_id = %s
+                        ) AS status_table
                         GROUP BY status""", 
                         (user_id,)
                     )
@@ -803,7 +807,7 @@ def Routes():
                         donut_data[status] = row.get('count', 0)
                 except Exception as e:
                     print(f"Error in donut data query: {e}")
-                    donut_data = {'Completed': 65, 'Partial': 25, 'Missed': 10}
+                    donut_data = {'Completed': 0, 'Partial': 0, 'Missed': 0}
 
                 print("Rendering dashboard template with dynamic data")
                 return templates.TemplateResponse(
@@ -856,7 +860,7 @@ def Routes():
             print(f"Error in front-page route: {e}")
             print(f"Traceback: {traceback.format_exc()}")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
-    
+
     @app.get("/analytics/recovery")
     async def recovery_analytics(request: Request):
         session_id = request.cookies.get("session_id")
