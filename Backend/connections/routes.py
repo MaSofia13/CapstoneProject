@@ -5,6 +5,7 @@ from connections.mongo_db import *
 from contextlib import asynccontextmanager
 import datetime
 from datetime import datetime, timedelta
+import logging
 
 
 UPLOAD_DIR = "uploads/exercise_videos"
@@ -19,6 +20,9 @@ CHUNK_SIZE = 4 * 1024 * 1024
 MAX_VIDEO_DURATION = 3 * 60 * 60
 
 TEMP_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "temp")
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("recovery_analytics")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -864,40 +868,53 @@ def Routes():
     @app.get("/analytics/recovery")
     async def recovery_analytics(request: Request):
         session_id = request.cookies.get("session_id")
+        logger.debug(f"Session ID from cookie: {session_id}")
+        
         if not session_id:
+            logger.warning("No session ID found in cookie")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
         
         try:
             session_data = await get_redis_session(session_id)
+            logger.debug(f"Session data retrieved: {session_data}")
+            
             if not session_data or "user_id" not in session_data:
+                logger.warning("Invalid or missing session data")
                 return RedirectResponse(url="/Therapist_Login", status_code=303)
             
             try:
                 therapist_id = int(session_data["user_id"])
+                logger.debug(f"Therapist ID: {therapist_id}")
             except ValueError:
-                print(f"Invalid user_id format: {session_data['user_id']}")
-                return JSONResponse(content={"success": False, "error": "Invalid therapist ID"}, status_code=400)
+                logger.error(f"Invalid user_id format: {session_data['user_id']}")
+                return JSONResponse(
+                    content={"success": False, "error": "Invalid therapist ID"},
+                    status_code=400
+                )
 
-            db = get_Mysql_db() 
-            cursor = db.cursor(pymysql.cursors.DictCursor)  
+            db = get_Mysql_db()
+            cursor = db.cursor(pymysql.cursors.DictCursor)
             try:
+                logger.debug("Executing query #1: Recovery trend")
                 cursor.execute(
                     """SELECT 
                         DATE_FORMAT(measurement_date, '%d %b') AS date,
-                        AVG(recovery_progress) AS progress
+                        COALESCE(AVG(recovery_progress), 0) AS progress
                     FROM PatientMetrics 
                     WHERE measurement_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
                     AND therapist_id = %s
                     GROUP BY DATE_FORMAT(measurement_date, '%d %b')
-                    ORDER BY measurement_date""", 
+                    ORDER BY MIN(measurement_date)""", 
                     (therapist_id,)
                 )
-                recovery_trend = cursor.fetchall()
+                recovery_trend = cursor.fetchall() or []
+                logger.debug(f"Recovery trend results: {len(recovery_trend)} rows")
 
+                logger.debug("Executing query #2: Recovery by diagnosis")
                 cursor.execute(
                     """SELECT 
-                        p.diagnosis,
-                        AVG(pm.recovery_progress) AS avg_progress,
+                        COALESCE(p.diagnosis, 'Unknown') AS diagnosis,
+                        COALESCE(AVG(pm.recovery_progress), 0) AS avg_progress,
                         COUNT(DISTINCT p.patient_id) AS patient_count
                     FROM PatientMetrics pm
                     JOIN Patients p ON pm.patient_id = p.patient_id
@@ -906,14 +923,16 @@ def Routes():
                     ORDER BY avg_progress DESC""", 
                     (therapist_id,)
                 )
-                recovery_by_diagnosis = cursor.fetchall()
+                recovery_by_diagnosis = cursor.fetchall() or []
+                logger.debug(f"Recovery by diagnosis results: {len(recovery_by_diagnosis)} rows")
 
+                logger.debug("Executing query #3: Top recovery patients")
                 cursor.execute(
                     """SELECT 
                         p.first_name, 
                         p.last_name, 
-                        p.diagnosis, 
-                        AVG(pm.recovery_progress) AS avg_progress
+                        COALESCE(p.diagnosis, 'Unknown') AS diagnosis, 
+                        COALESCE(AVG(pm.recovery_progress), 0) AS avg_progress
                     FROM PatientMetrics pm
                     JOIN Patients p ON pm.patient_id = p.patient_id
                     WHERE pm.therapist_id = %s
@@ -922,14 +941,16 @@ def Routes():
                     LIMIT 5""", 
                     (therapist_id,)
                 )
-                top_recovery_patients = cursor.fetchall()
+                top_recovery_patients = cursor.fetchall() or []
+                logger.debug(f"Top recovery patients results: {len(top_recovery_patients)} rows")
 
+                logger.debug("Executing query #4: Bottom recovery patients")
                 cursor.execute(
                     """SELECT 
                         p.first_name, 
                         p.last_name, 
-                        p.diagnosis, 
-                        AVG(pm.recovery_progress) AS avg_progress
+                        COALESCE(p.diagnosis, 'Unknown') AS diagnosis, 
+                        COALESCE(AVG(pm.recovery_progress), 0) AS avg_progress
                     FROM PatientMetrics pm
                     JOIN Patients p ON pm.patient_id = p.patient_id
                     WHERE pm.therapist_id = %s
@@ -938,51 +959,64 @@ def Routes():
                     LIMIT 5""", 
                     (therapist_id,)
                 )
-                bottom_recovery_patients = cursor.fetchall()
+                bottom_recovery_patients = cursor.fetchall() or []
+                logger.debug(f"Bottom recovery patients results: {len(bottom_recovery_patients)} rows")
 
-                return JSONResponse(content={
+                response = {
                     "success": True,
                     "recovery_trend": [
-                        {"date": record["date"], "progress": float(record["progress"]) if record["progress"] is not None else 0}
+                        {
+                            "date": record["date"] or "Unknown",
+                            "progress": float(record["progress"]) if record["progress"] is not None else 0.0
+                        }
                         for record in recovery_trend
                     ],
                     "recovery_by_diagnosis": [
                         {
-                            "diagnosis": record["diagnosis"],
-                            "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0,
-                            "patient_count": int(record["patient_count"])
+                            "diagnosis": record["diagnosis"] or "Unknown",
+                            "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0.0,
+                            "patient_count": int(record["patient_count"]) if record["patient_count"] is not None else 0
                         }
                         for record in recovery_by_diagnosis
                     ],
                     "top_recovery_patients": [
                         {
-                            "name": f"{record['first_name']} {record['last_name']}",
-                            "diagnosis": record["diagnosis"],
-                            "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0
+                            "name": f"{record['first_name'] or 'Unknown'} {record['last_name'] or ''}".strip(),
+                            "diagnosis": record["diagnosis"] or "Unknown",
+                            "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0.0
                         }
                         for record in top_recovery_patients
                     ],
                     "bottom_recovery_patients": [
                         {
-                            "name": f"{record['first_name']} {record['last_name']}",
-                            "diagnosis": record["diagnosis"],
-                            "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0
+                            "name": f"{record['first_name'] or 'Unknown'} {record['last_name'] or ''}".strip(),
+                            "diagnosis": record["diagnosis"] or "Unknown",
+                            "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0.0
                         }
                         for record in bottom_recovery_patients
                     ]
-                })
+                }
+
+                logger.debug("Response prepared successfully")
+                return JSONResponse(content=response)
 
             except pymysql.Error as e:
-                print(f"Database error in recovery analytics route: {e}")
-                return JSONResponse(content={"success": False, "error": str(e)}, status_code=500)
+                logger.error(f"Database error in recovery analytics route: {e}", exc_info=True)
+                return JSONResponse(
+                    content={"success": False, "error": f"Database error: {str(e)}"},
+                    status_code=500
+                )
             finally:
                 cursor.close()
                 db.close()
         
         except Exception as e:
-            print(f"Error in recovery analytics route: {e}")
-            return JSONResponse(content={"success": False, "error": str(e)}, status_code=500)
-    
+            logger.error(f"Error in recovery analytics route: {e}", exc_info=True)
+            return JSONResponse(
+                content={"success": False, "error": f"Unexpected error: {str(e)}"},
+                status_code=500
+            )
+        
     @app.get("/messages")
     async def messages_page(request: Request, search: str = None):
         session_id = request.cookies.get("session_id")
