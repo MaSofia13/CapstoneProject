@@ -352,8 +352,8 @@ def Routes():
                         message_with_time = dict(message)  
 
                         timestamp = message.get('created_at')
-                        now = datetime.datetime.now()
-                        if isinstance(timestamp, datetime.datetime):
+                        now = datetime.now()
+                        if isinstance(timestamp, datetime):
                             diff = now - timestamp
                             if timestamp.date() == now.date():
                                 message_with_time['time_display'] = timestamp.strftime('%I:%M %p')
@@ -672,8 +672,8 @@ def Routes():
                             activity_with_color['icon'] = 'report-medical'
 
                         timestamp = activity.get('timestamp')
-                        now = datetime.datetime.now()
-                        if isinstance(timestamp, datetime.datetime):
+                        now = datetime.now()
+                        if isinstance(timestamp, datetime):
                             if timestamp.date() == now.date():
                                 activity_with_color['timestamp'] = f"Today, {timestamp.strftime('%I:%M %p')}"
                             elif timestamp.date() == (now - timedelta(days=1)).date():
@@ -1010,8 +1010,8 @@ def Routes():
                 for messages_list in [inbox_messages, sent_messages]:
                     for message in messages_list:
                         timestamp = message.get('created_at')
-                        now = datetime.datetime.now()
-                        if isinstance(timestamp, datetime.datetime):
+                        now = datetime.now()
+                        if isinstance(timestamp, datetime):
                             diff = now - timestamp
 
                             if timestamp.date() == now.date():
@@ -1175,8 +1175,8 @@ def Routes():
                     db.commit()
 
                 timestamp = message.get('created_at')
-                if isinstance(timestamp, datetime.datetime):
-                    now = datetime.datetime.now()
+                if isinstance(timestamp, datetime):
+                    now = datetime.now()
                     if timestamp.date() == now.date():
                         message['formatted_date'] = f"Today at {timestamp.strftime('%I:%M %p')}"
                     elif timestamp.date() == (now - timedelta(days=1)).date():
@@ -2257,7 +2257,7 @@ def Routes():
                 unread_messages_count = unread_count_result.get('count', 0) if unread_count_result else 0
                 
                 for review in reviews:
-                    if isinstance(review.get('created_at'), datetime.datetime):
+                    if isinstance(review.get('created_at'), datetime):
                         review['formatted_date'] = review['created_at'].strftime('%B %d, %Y')
                     else:
                         review['formatted_date'] = "Unknown date"
@@ -2516,9 +2516,9 @@ def Routes():
         session_id = secrets.token_hex(16)
 
         if remember:
-            expires = datetime.datetime.now() + datetime.timedelta(days=30)
+            expires = datetime.now() + datetime.timedelta(days=30)
         else:
-            expires = datetime.datetime.now() + datetime.timedelta(hours=24)
+            expires = datetime.now() + datetime.timedelta(hours=24)
 
         active_sessions[session_id] = SessionData(
             user_id=user_id,
@@ -2538,7 +2538,7 @@ def Routes():
         if not session:
             return None
 
-        if session.expires < datetime.datetime.now():
+        if session.expires < datetime.now():
             await delete_session(session_id)
             return None
 
@@ -2876,7 +2876,7 @@ def Routes():
                 
                 for metric in patient_metrics:
                     if metric.get('measurement_date'):
-                        if isinstance(metric['measurement_date'], (datetime.date, datetime.datetime)):
+                        if isinstance(metric['measurement_date'], (datetime.date, datetime)):
                             metric['measurement_date'] = metric['measurement_date'].strftime('%Y-%m-%d')
 
                 cursor.execute(
@@ -3875,7 +3875,7 @@ def Routes():
                     "therapist": therapist_data,
                     "first_name": therapist_data.get("first_name", ""),
                     "last_name": therapist_data.get("last_name", ""),
-                    "today": datetime.datetime.now()
+                    "today": datetime.now()
                 }
             )
         finally:
@@ -3897,7 +3897,7 @@ def Routes():
             cursor = db.cursor(pymysql.cursors.DictCursor)  
 
             try:
-                now = datetime.datetime.now()
+                now = datetime.now()
                 today = datetime.date.today()
                 
                 cursor.execute(
@@ -3966,7 +3966,7 @@ def Routes():
                     processed_appt = {}
                     
                     for key, value in appt.items():
-                        if isinstance(value, datetime.datetime):
+                        if isinstance(value, datetime):
                             processed_appt[key] = value
                         elif isinstance(value, datetime.date):
                             processed_appt[key] = value
@@ -4022,7 +4022,7 @@ def Routes():
                     processed_note = {}
                     
                     for key, value in note.items():
-                        if isinstance(value, datetime.datetime):
+                        if isinstance(value, datetime):
                             processed_note[key] = value.strftime('%Y-%m-%d %H:%M:%S')
                         elif isinstance(value, datetime.date):
                             processed_note[key] = value.strftime('%Y-%m-%d')
@@ -4060,7 +4060,7 @@ def Routes():
                         appt_date = appt.get('appointment_date')
                         appt_time = appt.get('appointment_time')
                         
-                        if isinstance(appt_date, (datetime.date, datetime.datetime)):
+                        if isinstance(appt_date, (datetime.date, datetime)):
                             date_str = appt_date.strftime('%Y-%m-%d')
                         else:
                             date_str = str(appt_date)
@@ -4916,8 +4916,8 @@ def Routes():
                     message_with_time = dict(clean_message)
                     
                     timestamp = clean_message.get('created_at')
-                    now = datetime.datetime.now()
-                    if isinstance(timestamp, datetime.datetime):
+                    now = datetime.now()
+                    if isinstance(timestamp, datetime):
                         diff = now - timestamp
                         if timestamp.date() == now.date():
                             message_with_time['time_display'] = timestamp.strftime('%I:%M %p')
@@ -4938,7 +4938,7 @@ def Routes():
                             
                     recent_messages.append(message_with_time)
                 
-                today = datetime.datetime.now().strftime('%Y-%m-%d')
+                today = datetime.now().strftime('%Y-%m-%d')
                 therapist_data = await get_therapist_data(user["user_id"])
 
                 
@@ -5190,8 +5190,8 @@ def Routes():
                     message_with_time = dict(clean_message)
                     
                     timestamp = clean_message.get('created_at')
-                    now = datetime.datetime.now()
-                    if isinstance(timestamp, datetime.datetime):
+                    now = datetime.now()
+                    if isinstance(timestamp, datetime):
                         diff = now - timestamp
                         if timestamp.date() == now.date():
                             message_with_time['time_display'] = timestamp.strftime('%I:%M %p')
@@ -5212,7 +5212,7 @@ def Routes():
                             
                     recent_messages.append(message_with_time)
                 
-                today = datetime.datetime.now().strftime('%Y-%m-%d')
+                today = datetime.now().strftime('%Y-%m-%d')
 
                 upcoming_appointments = []
                 for appt in upcoming_appointments_raw:
@@ -5346,8 +5346,8 @@ def Routes():
                     message_with_time = dict(clean_message)
                     
                     timestamp = clean_message.get('created_at')
-                    now = datetime.datetime.now()
-                    if isinstance(timestamp, datetime.datetime):
+                    now = datetime.now()
+                    if isinstance(timestamp, datetime):
                         diff = now - timestamp
                         if timestamp.date() == now.date():
                             message_with_time['time_display'] = timestamp.strftime('%I:%M %p')
@@ -5521,8 +5521,8 @@ def Routes():
                     message_with_time = dict(clean_message)
                     
                     timestamp = clean_message.get('created_at')
-                    now = datetime.datetime.now()
-                    if isinstance(timestamp, datetime.datetime):
+                    now = datetime.now()
+                    if isinstance(timestamp, datetime):
                         diff = now - timestamp
                         if timestamp.date() == now.date():
                             message_with_time['time_display'] = timestamp.strftime('%I:%M %p')
@@ -5699,12 +5699,12 @@ def Routes():
                 
                 try:
                     try:
-                        time_obj = datetime.datetime.strptime(appointment_time, "%H:%M").time()
+                        time_obj = datetime.strptime(appointment_time, "%H:%M").time()
                     except ValueError:
                         try:
-                            time_obj = datetime.datetime.strptime(appointment_time, "%I:%M %p").time()
+                            time_obj = datetime.strptime(appointment_time, "%I:%M %p").time()
                         except ValueError:
-                            time_obj = datetime.datetime.strptime(appointment_time, "%I:%M%p").time()
+                            time_obj = datetime.strptime(appointment_time, "%I:%M%p").time()
                     
                     cursor.execute(
                         """UPDATE Appointments 
@@ -5781,12 +5781,12 @@ def Routes():
                 
                 try:
                     try:
-                        time_obj = datetime.datetime.strptime(appointment_time, "%H:%M").time()
+                        time_obj = datetime.strptime(appointment_time, "%H:%M").time()
                     except ValueError:
                         try:
-                            time_obj = datetime.datetime.strptime(appointment_time, "%I:%M %p").time()
+                            time_obj = datetime.strptime(appointment_time, "%I:%M %p").time()
                         except ValueError:
-                            time_obj = datetime.datetime.strptime(appointment_time, "%I:%M%p").time()
+                            time_obj = datetime.strptime(appointment_time, "%I:%M%p").time()
                     
                     cursor.execute(
                         """INSERT INTO Appointments 
@@ -6492,7 +6492,7 @@ def Routes():
     def convert_mysql_time_to_time(mysql_time):
         """Convert MySQL TIME (timedelta) to datetime.time"""
         if isinstance(mysql_time, datetime.timedelta):
-            return (datetime.datetime.min + mysql_time).time()
+            return (datetime.min + mysql_time).time()
         return mysql_time
 
     @app.get("/therapists/{id}/availability")
@@ -6502,7 +6502,7 @@ def Routes():
         
         try:
             if not date:
-                date = datetime.datetime.now().strftime("%Y-%m-%d")
+                date = datetime.now().strftime("%Y-%m-%d")
             
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)
@@ -6540,13 +6540,13 @@ def Routes():
                 
                 slot_id = 1
                 while current_time < end_time:
-                    slot_end = (datetime.datetime.combine(datetime.date.today(), current_time) + 
+                    slot_end = (datetime.combine(datetime.date.today(), current_time) + 
                                 datetime.timedelta(minutes=slot_duration)).time()
                     
                     is_available = True
                     for booked in booked_slots:
                         booked_start = convert_mysql_time_to_time(booked.get('appointment_time'))
-                        booked_end_dt = (datetime.datetime.combine(datetime.date.today(), booked_start) + 
+                        booked_end_dt = (datetime.combine(datetime.date.today(), booked_start) + 
                                         datetime.timedelta(minutes=booked.get('duration', 60)))
                         booked_end = booked_end_dt.time()
                         
@@ -6565,7 +6565,7 @@ def Routes():
                     
                     slot_id += 1
                     
-                    current_time_dt = datetime.datetime.combine(datetime.date.today(), current_time)
+                    current_time_dt = datetime.combine(datetime.date.today(), current_time)
                     current_time_dt += datetime.timedelta(minutes=30)
                     current_time = current_time_dt.time()
                 
@@ -6668,10 +6668,10 @@ def Routes():
             am_pm = time_parts[1] if len(time_parts) > 1 else "AM"
 
             try:
-                time_obj = datetime.datetime.strptime(f"{time_str} {am_pm}", "%I:%M %p").time()
+                time_obj = datetime.strptime(f"{time_str} {am_pm}", "%I:%M %p").time()
             except ValueError:
                 try:
-                    time_obj = datetime.datetime.strptime(time_str, "%H:%M").time()
+                    time_obj = datetime.strptime(time_str, "%H:%M").time()
                 except ValueError:
                     return JSONResponse(
                         status_code=400,
@@ -6958,7 +6958,7 @@ def Routes():
                         return {"status": "valid", "message": "If this email is registered, you will receive reset instructions"}
                 
  
-                expiry = datetime.datetime.now() + datetime.timedelta(hours=24)
+                expiry = datetime.now() + datetime.timedelta(hours=24)
                 
  
                 reset_token = secrets.token_hex(32)
@@ -7268,7 +7268,7 @@ def Routes():
     def format_mysql_time(mysql_time):
         """Converts MySQL TIME (timedelta) to formatted string like '02:30 PM'"""
         if isinstance(mysql_time, timedelta):
-            mysql_time = (datetime.datetime.min + mysql_time).time()
+            mysql_time = (datetime.min + mysql_time).time()
         return mysql_time.strftime("%I:%M %p") if mysql_time else "N/A"
 
 
@@ -8604,7 +8604,7 @@ def Routes():
                 
 
                 start_date = plan["start_date"]
-                today = datetime.datetime.now().date()
+                today = datetime.now().date()
                 days_active = (today - start_date).days if start_date else 0
                 
 
@@ -9972,7 +9972,7 @@ def Routes():
             cursor = db.cursor()
 
             try:
-                now = datetime.datetime.now()
+                now = datetime.now()
                 today = datetime.date.today()
 
                 cursor.execute(
@@ -10334,7 +10334,7 @@ def Routes():
 
                     for key, value in note.items():
 
-                        if isinstance(value, datetime.datetime):
+                        if isinstance(value, datetime):
                             processed_note[key] = value.strftime('%Y-%m-%d %H:%M:%S')
                         elif isinstance(value, datetime.date):
                             processed_note[key] = value.strftime('%Y-%m-%d')
@@ -10373,7 +10373,7 @@ def Routes():
                         appt_time = appt['appointment_time']
                         
 
-                        if isinstance(appt_date, (datetime.date, datetime.datetime)):
+                        if isinstance(appt_date, (datetime.date, datetime)):
                             date_str = appt_date.strftime('%Y-%m-%d')
                         else:
                             date_str = str(appt_date)
@@ -10412,7 +10412,7 @@ def Routes():
                     processed_appt = {}
                     
                     for key, value in appt.items():
-                        if isinstance(value, datetime.datetime):
+                        if isinstance(value, datetime):
                             processed_appt[key] = value.strftime('%Y-%m-%d %H:%M:%S')
                         elif isinstance(value, datetime.date):
                             processed_appt[key] = value.strftime('%Y-%m-%d')

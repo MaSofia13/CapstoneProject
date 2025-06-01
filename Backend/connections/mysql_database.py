@@ -209,9 +209,6 @@ async def get_exercise_details(exercise_id):
             db.close()
 
 def verify_therapist_login(email, password):
-    """
-    Login function for therapists
-    """
     db = None
     cursor = None
     try:
