@@ -866,90 +866,120 @@ def Routes():
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
+        
         try:
             session_data = await get_redis_session(session_id)
-            if not session_data:
+            if not session_data or "user_id" not in session_data:
                 return RedirectResponse(url="/Therapist_Login", status_code=303)
+            
+            try:
+                therapist_id = int(session_data["user_id"])
+            except ValueError:
+                print(f"Invalid user_id format: {session_data['user_id']}")
+                return JSONResponse(content={"success": False, "error": "Invalid therapist ID"}, status_code=400)
 
             db = get_Mysql_db()
-            cursor = db.cursor()
+            cursor = db.cursor(dictionary=True)  
             try:
-
                 cursor.execute(
                     """SELECT 
-                        DATE_FORMAT(measurement_date, '%d %b') as date,
-                        AVG(recovery_progress) as progress
+                        DATE_FORMAT(measurement_date, '%d %b') AS date,
+                        AVG(recovery_progress) AS progress
                     FROM PatientMetrics 
                     WHERE measurement_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
                     AND therapist_id = %s
                     GROUP BY DATE_FORMAT(measurement_date, '%d %b')
                     ORDER BY measurement_date""", 
-                    (session_data["user_id"],)
+                    (therapist_id,)
                 )
                 recovery_trend = cursor.fetchall()
-                
 
                 cursor.execute(
                     """SELECT 
                         p.diagnosis,
-                        AVG(pm.recovery_progress) as avg_progress,
-                        COUNT(DISTINCT p.patient_id) as patient_count
+                        AVG(pm.recovery_progress) AS avg_progress,
+                        COUNT(DISTINCT p.patient_id) AS patient_count
                     FROM PatientMetrics pm
                     JOIN Patients p ON pm.patient_id = p.patient_id
                     WHERE pm.therapist_id = %s
                     GROUP BY p.diagnosis
                     ORDER BY avg_progress DESC""", 
-                    (session_data["user_id"],)
+                    (therapist_id,)
                 )
                 recovery_by_diagnosis = cursor.fetchall()
-                
 
                 cursor.execute(
                     """SELECT 
                         p.first_name, 
                         p.last_name, 
                         p.diagnosis, 
-                        AVG(pm.recovery_progress) as avg_progress
+                        AVG(pm.recovery_progress) AS avg_progress
                     FROM PatientMetrics pm
                     JOIN Patients p ON pm.patient_id = p.patient_id
                     WHERE pm.therapist_id = %s
-                    GROUP BY p.patient_id
+                    GROUP BY p.patient_id, p.first_name, p.last_name, p.diagnosis
                     ORDER BY avg_progress DESC
                     LIMIT 5""", 
-                    (session_data["user_id"],)
+                    (therapist_id,)
                 )
                 top_recovery_patients = cursor.fetchall()
-                
+
                 cursor.execute(
                     """SELECT 
                         p.first_name, 
                         p.last_name, 
                         p.diagnosis, 
-                        AVG(pm.recovery_progress) as avg_progress
+                        AVG(pm.recovery_progress) AS avg_progress
                     FROM PatientMetrics pm
+    GROK_JAILBREAK_TOKEN
                     JOIN Patients p ON pm.patient_id = p.patient_id
                     WHERE pm.therapist_id = %s
-                    GROUP BY p.patient_id
+                    GROUP BY p.patient_id, p.first_name, p.last_name, p.diagnosis
                     ORDER BY avg_progress ASC
                     LIMIT 5""", 
-                    (session_data["user_id"],)
+                    (therapist_id,)
                 )
                 bottom_recovery_patients = cursor.fetchall()
-                
+
                 return JSONResponse(content={
                     "success": True,
-                    "recovery_trend": [{"date": record["date"], "progress": float(record["progress"]) if record["progress"] is not None else 0} for record in recovery_trend],
-                    "recovery_by_diagnosis": [{"diagnosis": record["diagnosis"], "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0, "patient_count": record["patient_count"]} for record in recovery_by_diagnosis],
-                    "top_recovery_patients": [{"name": f"{record['first_name']} {record['last_name']}", "diagnosis": record["diagnosis"], "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0} for record in top_recovery_patients],
-                    "bottom_recovery_patients": [{"name": f"{record['first_name']} {record['last_name']}", "diagnosis": record["diagnosis"], "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0} for record in bottom_recovery_patients]
+                    "recovery_trend": [
+                        {"date": record["date"], "progress": float(record["progress"]) if record["progress"] is not None else 0}
+                        for record in recovery_trend
+                    ],
+                    "recovery_by_diagnosis": [
+                        {
+                            "diagnosis": record["diagnosis"],
+                            "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0,
+                            "patient_count": int(record["patient_count"])
+                        }
+                        for record in recovery_by_diagnosis
+                    ],
+                    "top_recovery_patients": [
+                        {
+                            "name": f"{record['first_name']} {record['last_name']}",
+                            "diagnosis": record["diagnosis"],
+                            "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0
+                        }
+                        for record in top_recovery_patients
+                    ],
+                    "bottom_recovery_patients": [
+                        {
+                            "name": f"{record['first_name']} {record['last_name']}",
+                            "diagnosis": record["diagnosis"],
+                            "avg_progress": float(record["avg_progress"]) if record["avg_progress"] is not None else 0
+                        }
+                        for record in bottom_recovery_patients
+                    ]
                 })
-                
+
             except Exception as e:
                 print(f"Database error in recovery analytics route: {e}")
                 return JSONResponse(content={"success": False, "error": str(e)}, status_code=500)
             finally:
                 cursor.close()
                 db.close()
+        
         except Exception as e:
             print(f"Error in recovery analytics route: {e}")
             return JSONResponse(content={"success": False, "error": str(e)}, status_code=500)
