@@ -5133,6 +5133,7 @@ def Routes():
             return f"{hours:02d}:{minutes:02d}"
         raise TypeError(f"Type {type(obj)} not serializable")
     
+    
     @app.get("/appointments")
     async def appointments_page(request: Request, user=Depends(get_current_user)):
         """Route to display appointments schedule and management page"""
@@ -7327,23 +7328,15 @@ def Routes():
 
     @app.get("/api/user/appointments")
     async def get_user_appointments_data(request: Request):
-        """API endpoint to get appointments for the current logged-in user"""
-        
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Not authenticated"}
-            )
+            return JSONResponse(status_code=401, content={"detail": "Not authenticated"})
 
         try:
             session_data = await get_session_data(session_id)
+            print(f"Session data: {session_data}")
             if not session_data:
-                return JSONResponse(
-                    status_code=401,
-                    content={"detail": "Not authenticated"}
-                )
+                return JSONResponse(status_code=401, content={"detail": "Not authenticated"})
 
             user_id = session_data.user_id
             
@@ -7358,8 +7351,10 @@ def Routes():
                     (user_id,)
                 )
                 patient_record = cursor.fetchone()
+                print(f"Patient record for user_id {user_id}: {patient_record}")
                 
                 if not patient_record:
+                    print(f"No patient found for user_id {user_id}")
                     return []
                 
                 patient_id = patient_record.get('patient_id')
@@ -7372,6 +7367,7 @@ def Routes():
                     (patient_id,)
                 )
                 appointments = cursor.fetchall()
+                print(f"Raw appointments for patient_id {patient_id}: {appointments}")
                 
                 formatted_appointments = []
                 for appointment in appointments:
@@ -7410,18 +7406,15 @@ def Routes():
                         "created_at": appointment.get("created_at").isoformat() if appointment.get("created_at") else "",
                         "updated_at": appointment.get("updated_at").isoformat() if appointment.get("updated_at") else ""
                     }
-                    
                     formatted_appointments.append(formatted_appointment)
                 
+                print(f"Formatted appointments: {formatted_appointments}")
                 return formatted_appointments
 
             except Exception as e:
                 print(f"Database error in get user appointments data API: {e}")
                 print(f"Traceback: {traceback.format_exc()}")
-                return JSONResponse(
-                    status_code=500,
-                    content={"detail": f"Internal server error: {str(e)}"}
-                )
+                return JSONResponse(status_code=500, content={"detail": f"Internal server error: {str(e)}"})
             finally:
                 if cursor:
                     cursor.close()
@@ -7430,10 +7423,7 @@ def Routes():
         except Exception as e:
             print(f"Error in get user appointments data API: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return JSONResponse(
-                status_code=500,
-                content={"detail": f"Server error: {str(e)}"}
-            )
+            return JSONResponse(status_code=500, content={"detail": f"Server error: {str(e)}"})
             
     @app.get("/api/user/treatment-plans")
     async def get_user_treatment_plans(request: Request):
