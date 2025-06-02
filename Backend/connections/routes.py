@@ -6594,13 +6594,13 @@ def Routes():
                 
                 slot_id = 1
                 while current_time < end_time:
-                    slot_end = (combine(date.today(), current_time) + 
+                    slot_end = (datetime.combine(date.today(), current_time) + 
                                 timedelta(minutes=slot_duration)).time()
                     
                     is_available = True
                     for booked in booked_slots:
                         booked_start = convert_mysql_time_to_time(booked.get('appointment_time'))
-                        booked_end_dt = (combine(date.today(), booked_start) + 
+                        booked_end_dt = (datetime.combine(date.today(), booked_start) + 
                                         timedelta(minutes=booked.get('duration', 60)))
                         booked_end = booked_end_dt.time()
                         
@@ -6619,7 +6619,7 @@ def Routes():
                     
                     slot_id += 1
                     
-                    current_time_dt = combine(date.today(), current_time)
+                    current_time_dt = datetime.combine(date.today(), current_time)
                     current_time_dt += timedelta(minutes=30)
                     current_time = current_time_dt.time()
                 
@@ -6642,6 +6642,7 @@ def Routes():
                 status_code=500,
                 content={"error": f"Server error: {str(e)}"}
             )
+
     
     @app.post("/api/book-appointment")
     async def book_appointment(appointment_request: AppointmentRequest, request: Request):
