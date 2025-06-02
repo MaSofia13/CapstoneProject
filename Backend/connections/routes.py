@@ -5480,6 +5480,7 @@ def Routes():
             print(f"Traceback: {traceback.format_exc()}")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
             
+    
     @app.get("/appointments/{appointment_id}/edit")
     async def get_edit_appointment(
         request: Request,
@@ -5512,10 +5513,19 @@ def Routes():
                 cursor.execute("SELECT patient_id, first_name, last_name FROM Patients WHERE therapist_id = %s", (session_data["user_id"],))
                 patients = cursor.fetchall()
                 
+                therapist_data = get_therapist_data(session_data["user_id"])
+                status_options = ['Scheduled', 'Completed', 'Cancelled', 'No Show']
+                appointment_date = appointment['appointment_date'].strftime("%Y-%m-%d")
+                appointment_time = appointment['appointment_time'].strftime("%H:%M")
+                
                 return templates.TemplateResponse("edit_appointment.html", {
                     "request": request,
                     "appointment": appointment,
-                    "patients": patients
+                    "patients": patients,
+                    "therapist": therapist_data,
+                    "status_options": status_options,
+                    "appointment_date": appointment_date,
+                    "appointment_time": appointment_time
                 })
                 
             finally:
@@ -5525,9 +5535,10 @@ def Routes():
                     db.close()
                     
         except Exception as e:
-            print(f"Error loading edit appointment: {e}")
+            print(f"Error loading edit appointment: {str(e)}")
+            traceback.print_exc()
             return RedirectResponse(url="/appointments", status_code=303)
-
+        
     @app.post("/appointments/{appointment_id}/edit")
     async def edit_appointment(
         request: Request,
@@ -5555,20 +5566,18 @@ def Routes():
             try:
                 cursor = db.cursor(pymysql.cursors.DictCursor)
                 
-                try:
-                    appointment_time_obj = datetime.strptime(appointment_time, "%H:%M:%S").time()
-                except ValueError:
+                formats = ["%H:%M:%S", "%H:%M", "%I:%M %p", "%I:%M:%S %p"]
+                appointment_time_obj = None
+                
+                for fmt in formats:
                     try:
-                        appointment_time_obj = datetime.strptime(appointment_time, "%H:%M").time()
+                        appointment_time_obj = datetime.strptime(appointment_time, fmt).time()
+                        break
                     except ValueError:
-                        try:
-                            appointment_time_obj = datetime.strptime(appointment_time, "%I:%M %p").time()
-                        except ValueError:
-                            try:
-                                appointment_time_obj = datetime.strptime(appointment_time, "%I:%M:%S %p").time()
-                            except ValueError:
-                                print(f"Time parsing error: time data '{appointment_time}' does not match any expected formats")
-                                return RedirectResponse(url=f"/appointments/{appointment_id}/edit?error=invalid_time_format", status_code=307)
+                        continue
+                        
+                if not appointment_time_obj:
+                    return RedirectResponse(url=f"/appointments/{appointment_id}/edit?error=invalid_time_format", status_code=307)
                 
                 try:
                     appointment_date_obj = datetime.strptime(appointment_date, "%Y-%m-%d").date()
@@ -5605,7 +5614,7 @@ def Routes():
                 
             except Exception as e:
                 print(f"Database error in edit appointment: {e}")
-                print(f"Traceback: {traceback.format_exc()}")
+                traceback.print_exc()
                 return RedirectResponse(url=f"/appointments/{appointment_id}/edit?error=database", status_code=307)
             finally:
                 if cursor:
@@ -5615,7 +5624,7 @@ def Routes():
                     
         except Exception as e:
             print(f"Error in edit appointment: {e}")
-            print(f"Traceback: {traceback.format_exc()}")
+            traceback.print_exc()
             return RedirectResponse(url="/Therapist_Login", status_code=303)
         
     @app.post("/appointments/new")

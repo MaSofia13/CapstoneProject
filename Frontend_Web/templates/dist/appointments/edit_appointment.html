@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="/static/assets/fonts/material.css">
   <link rel="stylesheet" href="/static/assets/css/style.css" id="main-style-link">
   <link rel="stylesheet" href="/static/assets/css/style-preset.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
 </head>
 
 <body data-pc-preset="preset-1" data-pc-direction="ltr" data-pc-theme="light">
@@ -310,19 +311,20 @@
   
                 <div class="row">
                   <div class="col-md-4">
-                    <div class="form-group mb-3">
-                      <label for="appointment_date" class="form-label">Date <span class="text-danger">*</span></label>
-                      <input type="date" class="form-control" id="appointment_date" name="appointment_date" 
-                             value="{{ appointment_date }}" required>
-                    </div>
+                      <div class="form-group mb-3">
+                          <label for="appointment_date" class="form-label">Date <span class="text-danger">*</span></label>
+                          <input type="date" class="form-control" id="appointment_date" name="appointment_date" 
+                                value="{{ appointment_date }}" required>  
+                      </div>
                   </div>
                   <div class="col-md-4">
                     <div class="form-group mb-3">
-                      <label for="appointment_time" class="form-label">Time <span class="text-danger">*</span></label>
-                      <input type="time" name="appointment_time" value="{{ appointment_time }}" required>
-                      <small class="text-muted">Use 24-hour format (e.g. 14:30 for 2:30 PM)</small>
+                        <label for="appointment_time" class="form-label">Time <span class="text-danger">*</span></label>
+                        <input type="time" class="form-control" id="appointment_time" name="appointment_time" 
+                              value="{{ appointment_time }}" required>
+                        <small class="text-muted">Use 24-hour format (e.g. 14:30 for 2:30 PM)</small>
                     </div>
-                  </div>
+                </div>
                   <div class="col-md-4">
                     <div class="form-group mb-3">
                       <label for="duration" class="form-label">Duration (minutes)</label>
