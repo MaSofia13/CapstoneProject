@@ -5513,10 +5513,18 @@ def Routes():
                 cursor.execute("SELECT patient_id, first_name, last_name FROM Patients WHERE therapist_id = %s", (session_data["user_id"],))
                 patients = cursor.fetchall()
                 
-                therapist_data = get_therapist_data(session_data["user_id"])
+                therapist_data = await get_therapist_data(session_data["user_id"])
                 status_options = ['Scheduled', 'Completed', 'Cancelled', 'No Show']
+                
                 appointment_date = appointment['appointment_date'].strftime("%Y-%m-%d")
-                appointment_time = appointment['appointment_time'].strftime("%H:%M")
+                
+                if isinstance(appointment['appointment_time'], timedelta):
+                    total_seconds = int(appointment['appointment_time'].total_seconds())
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    appointment_time = f"{hours:02d}:{minutes:02d}"
+                else:
+                    appointment_time = appointment['appointment_time'].strftime("%H:%M")
                 
                 return templates.TemplateResponse("edit_appointment.html", {
                     "request": request,
