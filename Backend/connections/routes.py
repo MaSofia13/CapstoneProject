@@ -6621,7 +6621,7 @@ def Routes():
                     
                     slot_id += 1
                     
-                    current_time_dt = datetime.combine(date.today(), current_time)
+                    current_time_dt = datetime.combine(datetime.date.today(), current_time)
                     current_time_dt += timedelta(minutes=30)
                     current_time = current_time_dt.time()
                 
