@@ -6552,11 +6552,14 @@ def Routes():
 
     @app.get("/therapists/{id}/availability")
     async def get_therapist_availability(id: int, date: str = None):
-        from datetime import datetime, date, time, timedelta
+        from datetime import datetime, date as date_class, time, timedelta
         
         try:
             if not date:
                 date = datetime.now().strftime("%Y-%m-%d")
+            
+            if isinstance(date, date_class):
+                date = date.strftime("%Y-%m-%d")
             
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)
@@ -6594,13 +6597,13 @@ def Routes():
                 
                 slot_id = 1
                 while current_time < end_time:
-                    slot_end = (datetime.combine(date.today(), current_time) + 
+                    slot_end = (datetime.combine(date_class.today(), current_time) + 
                                 timedelta(minutes=slot_duration)).time()
                     
                     is_available = True
                     for booked in booked_slots:
                         booked_start = convert_mysql_time_to_time(booked.get('appointment_time'))
-                        booked_end_dt = (datetime.combine(date.today(), booked_start) + 
+                        booked_end_dt = (datetime.combine(date_class.today(), booked_start) + 
                                         timedelta(minutes=booked.get('duration', 60)))
                         booked_end = booked_end_dt.time()
                         
@@ -6619,7 +6622,7 @@ def Routes():
                     
                     slot_id += 1
                     
-                    current_time_dt = datetime.combine(date.today(), current_time)
+                    current_time_dt = datetime.combine(date_class.today(), current_time)
                     current_time_dt += timedelta(minutes=30)
                     current_time = current_time_dt.time()
                 
