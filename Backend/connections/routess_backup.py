@@ -4,9 +4,8 @@ from connections.redis_database import *
 from connections.mongo_db import *
 from contextlib import asynccontextmanager
 import datetime
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import logging
-
 
 UPLOAD_DIR = "uploads/exercise_videos"
 UPLOAD_URL_PATH = "/api/uploads/exercise_videos"
@@ -2592,9 +2591,9 @@ def Routes():
         session_id = secrets.token_hex(16)
 
         if remember:
-            expires = datetime.now() + datetime.timedelta(days=30)
+            expires = datetime.now() + timedelta(days=30)
         else:
-            expires = datetime.now() + datetime.timedelta(hours=24)
+            expires = datetime.now() + timedelta(hours=24)
 
         active_sessions[session_id] = SessionData(
             user_id=user_id,
@@ -2950,7 +2949,7 @@ def Routes():
                 
                 for metric in patient_metrics:
                     if metric.get('measurement_date'):
-                        if isinstance(metric['measurement_date'], (datetime.date, datetime)):
+                        if isinstance(metric['measurement_date'], (date, datetime)):
                             metric['measurement_date'] = metric['measurement_date'].strftime('%Y-%m-%d')
 
                 cursor.execute(
@@ -4036,9 +4035,9 @@ def Routes():
                     for key, value in appt.items():
                         if isinstance(value, datetime):
                             processed_appt[key] = value
-                        elif isinstance(value, datetime.date):
+                        elif isinstance(value, date):
                             processed_appt[key] = value
-                        elif isinstance(value, datetime.timedelta):
+                        elif isinstance(value, timedelta):
                             processed_appt[key] = value
                         elif isinstance(value, bytes):
                             processed_appt[key] = value.decode('utf-8')
@@ -4092,9 +4091,9 @@ def Routes():
                     for key, value in note.items():
                         if isinstance(value, datetime):
                             processed_note[key] = value.strftime('%Y-%m-%d %H:%M:%S')
-                        elif isinstance(value, datetime.date):
+                        elif isinstance(value, date):
                             processed_note[key] = value.strftime('%Y-%m-%d')
-                        elif isinstance(value, datetime.timedelta):
+                        elif isinstance(value, timedelta):
                             total_seconds = int(value.total_seconds())
                             hours, remainder = divmod(total_seconds, 3600)
                             minutes, seconds = divmod(remainder, 60)
@@ -4128,12 +4127,12 @@ def Routes():
                         appt_date = appt.get('appointment_date')
                         appt_time = appt.get('appointment_time')
                         
-                        if isinstance(appt_date, (datetime.date, datetime)):
+                        if isinstance(appt_date, (date, datetime)):
                             date_str = appt_date.strftime('%Y-%m-%d')
                         else:
                             date_str = str(appt_date)
                             
-                        if isinstance(appt_time, datetime.timedelta):
+                        if isinstance(appt_time, timedelta):
                             total_seconds = int(appt_time.total_seconds())
                             hours, remainder = divmod(total_seconds, 3600)
                             minutes, seconds = divmod(remainder, 60)
@@ -5122,6 +5121,7 @@ def Routes():
         return processed
 
     def serialize_datetime(obj):
+        from datetime import datetime, time, date
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
         elif isinstance(obj, time):
@@ -5610,12 +5610,12 @@ def Routes():
                     recent_messages.append(message_with_time)
                 
                 appointment_date = appointment.get('appointment_date')
-                formatted_date = appointment_date.strftime('%Y-%m-%d') if isinstance(appointment_date, datetime.date) else appointment_date
+                formatted_date = appointment_date.strftime('%Y-%m-%d') if isinstance(appointment_date, date) else appointment_date
                 
                 appointment_time = appointment.get('appointment_time')
                 if isinstance(appointment_time, datetime.time):
                     formatted_time = appointment_time.strftime('%H:%M')
-                elif isinstance(appointment_time, datetime.timedelta):
+                elif isinstance(appointment_time, timedelta):
                     total_seconds = appointment_time.total_seconds()
                     hours = int(total_seconds // 3600)
                     minutes = int((total_seconds % 3600) // 60)
@@ -6547,18 +6547,20 @@ def Routes():
             )
 
     def convert_mysql_time_to_time(mysql_time):
-        """Convert MySQL TIME (timedelta) to datetime.time"""
-        if isinstance(mysql_time, datetime.timedelta):
+        if isinstance(mysql_time, timedelta):
             return (datetime.min + mysql_time).time()
         return mysql_time
 
     @app.get("/therapists/{id}/availability")
     async def get_therapist_availability(id: int, date: str = None):
-        """API endpoint to get available time slots for a therapist"""
+        from datetime import datetime, date as date_class, time, timedelta
         
         try:
             if not date:
                 date = datetime.now().strftime("%Y-%m-%d")
+            
+            if isinstance(date, date_class):
+                date = date.strftime("%Y-%m-%d")
             
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)
@@ -6591,19 +6593,19 @@ def Routes():
                 slot_duration = therapist.get('average_session_length', 60) or 60
                 
                 available_slots = []
-                current_time = datetime.time(start_hour, 0)
-                end_time = datetime.time(end_hour, 0)
+                current_time = time(start_hour, 0)
+                end_time = time(end_hour, 0)
                 
                 slot_id = 1
                 while current_time < end_time:
-                    slot_end = (datetime.combine(datetime.date.today(), current_time) + 
-                                datetime.timedelta(minutes=slot_duration)).time()
+                    slot_end = (datetime.combine(date_class.today(), current_time) + 
+                                timedelta(minutes=slot_duration)).time()
                     
                     is_available = True
                     for booked in booked_slots:
                         booked_start = convert_mysql_time_to_time(booked.get('appointment_time'))
-                        booked_end_dt = (datetime.combine(datetime.date.today(), booked_start) + 
-                                        datetime.timedelta(minutes=booked.get('duration', 60)))
+                        booked_end_dt = (datetime.combine(date_class.today(), booked_start) + 
+                                        timedelta(minutes=booked.get('duration', 60)))
                         booked_end = booked_end_dt.time()
                         
                         if (current_time < booked_end and slot_end > booked_start):
@@ -6621,8 +6623,8 @@ def Routes():
                     
                     slot_id += 1
                     
-                    current_time_dt = datetime.combine(datetime.date.today(), current_time)
-                    current_time_dt += datetime.timedelta(minutes=30)
+                    current_time_dt = datetime.combine(date_class.today(), current_time)
+                    current_time_dt += timedelta(minutes=30)
                     current_time = current_time_dt.time()
                 
                 return available_slots
@@ -6645,6 +6647,7 @@ def Routes():
                 content={"error": f"Server error: {str(e)}"}
             )
 
+    
     @app.post("/api/book-appointment")
     async def book_appointment(appointment_request: AppointmentRequest, request: Request):
         
@@ -7011,7 +7014,7 @@ def Routes():
                         return {"status": "valid", "message": "If this email is registered, you will receive reset instructions"}
                 
  
-                expiry = datetime.now() + datetime.timedelta(hours=24)
+                expiry = datetime.now() + timedelta(hours=24)
                 
  
                 reset_token = secrets.token_hex(32)
@@ -7316,32 +7319,39 @@ def Routes():
                 content={"detail": f"Server error: {str(e)}"}
             )
             
+
     def format_mysql_time(mysql_time):
-        """Converts MySQL TIME (timedelta) to formatted string like '02:30 PM'"""
+        from datetime import timedelta, time, datetime
+        """Converts MySQL TIME (timedelta or time) to formatted string like '12:00:00'"""
+        print(f"Formatting time: {mysql_time} ({type(mysql_time)})")
         if isinstance(mysql_time, timedelta):
-            mysql_time = (datetime.min + mysql_time).time()
-        return mysql_time.strftime("%I:%M %p") if mysql_time else "N/A"
+            total_seconds = int(mysql_time.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        elif isinstance(mysql_time, time):
+            return mysql_time.strftime('%H:%M:%S')
+        elif isinstance(mysql_time, str):
+            return mysql_time
+        elif mysql_time is None:
+            return "00:00:00"
+        raise ValueError(f"Invalid time format: {mysql_time}")
 
 
     @app.get("/api/user/appointments")
     async def get_user_appointments_data(request: Request):
-        """API endpoint to get appointments for the current logged-in user"""
-        
-        
         session_id = request.cookies.get("session_id")
         if not session_id:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Not authenticated"}
-            )
+            print("No session_id provided")
+            return JSONResponse(status_code=401, content={"detail": "Not authenticated"})
 
         try:
             session_data = await get_session_data(session_id)
+            print(f"Session data: {session_data}")
             if not session_data:
-                return JSONResponse(
-                    status_code=401,
-                    content={"detail": "Not authenticated"}
-                )
+                print("No session data found")
+                return JSONResponse(status_code=401, content={"detail": "Not authenticated"})
 
             user_id = session_data.user_id
             
@@ -7356,8 +7366,10 @@ def Routes():
                     (user_id,)
                 )
                 patient_record = cursor.fetchone()
+                print(f"Patient record for user_id {user_id}: {patient_record}")
                 
                 if not patient_record:
+                    print(f"No patient found for user_id {user_id}")
                     return []
                 
                 patient_id = patient_record.get('patient_id')
@@ -7370,6 +7382,7 @@ def Routes():
                     (patient_id,)
                 )
                 appointments = cursor.fetchall()
+                print(f"Raw appointments for patient_id {patient_id}: {appointments}")
                 
                 formatted_appointments = []
                 for appointment in appointments:
@@ -7408,18 +7421,15 @@ def Routes():
                         "created_at": appointment.get("created_at").isoformat() if appointment.get("created_at") else "",
                         "updated_at": appointment.get("updated_at").isoformat() if appointment.get("updated_at") else ""
                     }
-                    
                     formatted_appointments.append(formatted_appointment)
                 
+                print(f"Formatted appointments: {formatted_appointments}")
                 return formatted_appointments
 
             except Exception as e:
                 print(f"Database error in get user appointments data API: {e}")
                 print(f"Traceback: {traceback.format_exc()}")
-                return JSONResponse(
-                    status_code=500,
-                    content={"detail": f"Internal server error: {str(e)}"}
-                )
+                return JSONResponse(status_code=500, content={"detail": f"Internal server error: {str(e)}"})
             finally:
                 if cursor:
                     cursor.close()
@@ -7428,10 +7438,7 @@ def Routes():
         except Exception as e:
             print(f"Error in get user appointments data API: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            return JSONResponse(
-                status_code=500,
-                content={"detail": f"Server error: {str(e)}"}
-            )
+            return JSONResponse(status_code=500, content={"detail": f"Server error: {str(e)}"})
             
     @app.get("/api/user/treatment-plans")
     async def get_user_treatment_plans(request: Request):
@@ -10387,9 +10394,9 @@ def Routes():
 
                         if isinstance(value, datetime):
                             processed_note[key] = value.strftime('%Y-%m-%d %H:%M:%S')
-                        elif isinstance(value, datetime.date):
+                        elif isinstance(value, date):
                             processed_note[key] = value.strftime('%Y-%m-%d')
-                        elif isinstance(value, datetime.timedelta):
+                        elif isinstance(value, timedelta):
                             total_seconds = int(value.total_seconds())
                             hours, remainder = divmod(total_seconds, 3600)
                             minutes, seconds = divmod(remainder, 60)
@@ -10424,12 +10431,12 @@ def Routes():
                         appt_time = appt['appointment_time']
                         
 
-                        if isinstance(appt_date, (datetime.date, datetime)):
+                        if isinstance(appt_date, (date, datetime)):
                             date_str = appt_date.strftime('%Y-%m-%d')
                         else:
                             date_str = str(appt_date)
                             
-                        if isinstance(appt_time, datetime.timedelta):
+                        if isinstance(appt_time, timedelta):
                             total_seconds = int(appt_time.total_seconds())
                             hours, remainder = divmod(total_seconds, 3600)
                             minutes, seconds = divmod(remainder, 60)
@@ -10465,9 +10472,9 @@ def Routes():
                     for key, value in appt.items():
                         if isinstance(value, datetime):
                             processed_appt[key] = value.strftime('%Y-%m-%d %H:%M:%S')
-                        elif isinstance(value, datetime.date):
+                        elif isinstance(value, date):
                             processed_appt[key] = value.strftime('%Y-%m-%d')
-                        elif isinstance(value, datetime.timedelta):
+                        elif isinstance(value, timedelta):
                             total_seconds = int(value.total_seconds())
                             hours, remainder = divmod(total_seconds, 3600)
                             minutes, seconds = divmod(remainder, 60)

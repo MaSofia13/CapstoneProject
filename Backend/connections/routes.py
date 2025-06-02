@@ -7319,23 +7319,38 @@ def Routes():
                 content={"detail": f"Server error: {str(e)}"}
             )
             
+
     def format_mysql_time(mysql_time):
-        """Converts MySQL TIME (timedelta) to formatted string like '02:30 PM'"""
+        from datetime import timedelta, time, datetime
+        """Converts MySQL TIME (timedelta or time) to formatted string like '12:00:00'"""
+        print(f"Formatting time: {mysql_time} ({type(mysql_time)})")
         if isinstance(mysql_time, timedelta):
-            mysql_time = (datetime.min + mysql_time).time()
-        return mysql_time.strftime("%I:%M %p") if mysql_time else "N/A"
+            total_seconds = int(mysql_time.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        elif isinstance(mysql_time, time):
+            return mysql_time.strftime('%H:%M:%S')
+        elif isinstance(mysql_time, str):
+            return mysql_time
+        elif mysql_time is None:
+            return "00:00:00"
+        raise ValueError(f"Invalid time format: {mysql_time}")
 
 
     @app.get("/api/user/appointments")
     async def get_user_appointments_data(request: Request):
         session_id = request.cookies.get("session_id")
         if not session_id:
+            print("No session_id provided")
             return JSONResponse(status_code=401, content={"detail": "Not authenticated"})
 
         try:
             session_data = await get_session_data(session_id)
             print(f"Session data: {session_data}")
             if not session_data:
+                print("No session data found")
                 return JSONResponse(status_code=401, content={"detail": "Not authenticated"})
 
             user_id = session_data.user_id
