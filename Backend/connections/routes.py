@@ -6552,7 +6552,7 @@ def Routes():
 
     @app.get("/therapists/{id}/availability")
     async def get_therapist_availability(id: int, date: str = None):
-        from datetime import datetime, date, time, timedelta, combine
+        from datetime import datetime, date, time, timedelta
         
         try:
             if not date:
