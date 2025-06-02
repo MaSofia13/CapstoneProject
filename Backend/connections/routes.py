@@ -5482,7 +5482,7 @@ def Routes():
             
     @app.get("/appointments/{appointment_id}/edit")
     async def edit_appointment_form(request: Request, appointment_id: int, user = Depends(get_current_user)):
-        """Display the form to edit an appointment"""
+        from datetime import datetime, time, timedelta, date  
         session_id = request.cookies.get("session_id")
         therapist_data = await get_therapist_data(user["user_id"])
         
@@ -5613,16 +5613,11 @@ def Routes():
                 formatted_date = appointment_date.strftime('%Y-%m-%d') if isinstance(appointment_date, date) else appointment_date
                 
                 appointment_time = appointment.get('appointment_time')
-                if isinstance(appointment_time, datetime.time):
-                    formatted_time = appointment_time.strftime('%H:%M')
-                elif isinstance(appointment_time, timedelta):
-                    total_seconds = appointment_time.total_seconds()
-                    hours = int(total_seconds // 3600)
-                    minutes = int((total_seconds % 3600) // 60)
-                    formatted_time = f"{hours:02d}:{minutes:02d}"
+                if isinstance(appointment_time, (time, timedelta)):
+                    formatted_time = appointment_time.strftime('%H:%M:%S') if isinstance(appointment_time, time) else format_mysql_time(appointment_time)
                 else:
-                    formatted_time = appointment_time
-                    
+                    formatted_time = appointment_time if isinstance(appointment_time, str) else "00:00:00"
+                
                 status_options = ['Scheduled', 'Completed', 'Cancelled', 'No-Show']
                 
                 return templates.TemplateResponse(
@@ -7318,7 +7313,6 @@ def Routes():
                 status_code=500,
                 content={"detail": f"Server error: {str(e)}"}
             )
-            
 
     def format_mysql_time(mysql_time):
         from datetime import timedelta, time, datetime
