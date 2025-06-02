@@ -5480,60 +5480,69 @@ def Routes():
             print(f"Traceback: {traceback.format_exc()}")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
             
-    @app.route("/appointments/{appointment_id}/edit", methods=["GET", "POST"])
-    async def edit_appointment(
+    @app.get("/appointments/{appointment_id}/edit")
+    async def get_edit_appointment(
         request: Request,
         appointment_id: int,
-        patient_id: int = Form(None),
-        appointment_date: str = Form(None),
-        appointment_time: str = Form(None),
-        duration: int = Form(None),
-        status: str = Form(None),
-        notes: str = Form(None),
         user = Depends(get_current_user)
     ):
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
         
-        if request.method == "GET":
+        try:
+            session_data = await get_redis_session(session_id)
+            if not session_data:
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
+            
+            db = get_Mysql_db()
+            cursor = None
+            
             try:
-                session_data = await get_redis_session(session_id)
-                if not session_data:
-                    return RedirectResponse(url="/Therapist_Login", status_code=303)
+                cursor = db.cursor(pymysql.cursors.DictCursor)
+                cursor.execute(
+                    "SELECT * FROM Appointments WHERE appointment_id = %s AND therapist_id = %s",
+                    (appointment_id, session_data["user_id"])
+                )
+                appointment = cursor.fetchone()
                 
-                db = get_Mysql_db()
-                cursor = None
+                if not appointment:
+                    return RedirectResponse(url="/appointments?error=not_found", status_code=303)
                 
-                try:
-                    cursor = db.cursor(pymysql.cursors.DictCursor)
-                    cursor.execute(
-                        "SELECT * FROM Appointments WHERE appointment_id = %s AND therapist_id = %s",
-                        (appointment_id, session_data["user_id"])
-                    )
-                    appointment = cursor.fetchone()
+                cursor.execute("SELECT patient_id, first_name, last_name FROM Patients WHERE therapist_id = %s", (session_data["user_id"],))
+                patients = cursor.fetchall()
+                
+                return templates.TemplateResponse("edit_appointment.html", {
+                    "request": request,
+                    "appointment": appointment,
+                    "patients": patients
+                })
+                
+            finally:
+                if cursor:
+                    cursor.close()
+                if db:
+                    db.close()
                     
-                    if not appointment:
-                        return RedirectResponse(url="/appointments?error=not_found", status_code=303)
-                    
-                    cursor.execute("SELECT patient_id, first_name, last_name FROM Patients WHERE therapist_id = %s", (session_data["user_id"],))
-                    patients = cursor.fetchall()
-                    
-                    return templates.TemplateResponse("edit_appointment.html", {
-                        "request": request,
-                        "appointment": appointment,
-                        "patients": patients
-                    })
-                    
-                finally:
-                    if cursor:
-                        cursor.close()
-                    if db:
-                        db.close()
-                        
-            except Exception as e:
-                print(f"Error loading edit appointment: {e}")
-                return RedirectResponse(url="/appointments", status_code=303)
+        except Exception as e:
+            print(f"Error loading edit appointment: {e}")
+            return RedirectResponse(url="/appointments", status_code=303)
+
+    @app.post("/appointments/{appointment_id}/edit")
+    async def edit_appointment(
+        request: Request,
+        appointment_id: int,
+        patient_id: int = Form(...),
+        appointment_date: str = Form(...),
+        appointment_time: str = Form(...),
+        duration: int = Form(...),
+        status: str = Form(...),
+        notes: str = Form(None),
+        user = Depends(get_current_user)
+    ):
+        session_id = request.cookies.get("session_id")
+        if not session_id:
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
         
         try:
             session_data = await get_redis_session(session_id)
@@ -5608,7 +5617,7 @@ def Routes():
             print(f"Error in edit appointment: {e}")
             print(f"Traceback: {traceback.format_exc()}")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
-    
+        
     @app.post("/appointments/new")
     async def create_appointment(request: Request, user=Depends(get_current_user)):
         """Handle appointment creation"""
