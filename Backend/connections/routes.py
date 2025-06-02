@@ -5480,21 +5480,60 @@ def Routes():
             print(f"Traceback: {traceback.format_exc()}")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
             
-    @app.post("/appointments/{appointment_id}/edit")
+    @app.route("/appointments/{appointment_id}/edit", methods=["GET", "POST"])
     async def edit_appointment(
         request: Request,
         appointment_id: int,
-        patient_id: int = Form(...),
-        appointment_date: str = Form(...),
-        appointment_time: str = Form(...),
-        duration: int = Form(...),
-        status: str = Form(...),
+        patient_id: int = Form(None),
+        appointment_date: str = Form(None),
+        appointment_time: str = Form(None),
+        duration: int = Form(None),
+        status: str = Form(None),
         notes: str = Form(None),
         user = Depends(get_current_user)
     ):
         session_id = request.cookies.get("session_id")
         if not session_id:
             return RedirectResponse(url="/Therapist_Login", status_code=303)
+        
+        if request.method == "GET":
+            try:
+                session_data = await get_redis_session(session_id)
+                if not session_data:
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
+                
+                db = get_Mysql_db()
+                cursor = None
+                
+                try:
+                    cursor = db.cursor(pymysql.cursors.DictCursor)
+                    cursor.execute(
+                        "SELECT * FROM Appointments WHERE appointment_id = %s AND therapist_id = %s",
+                        (appointment_id, session_data["user_id"])
+                    )
+                    appointment = cursor.fetchone()
+                    
+                    if not appointment:
+                        return RedirectResponse(url="/appointments?error=not_found", status_code=303)
+                    
+                    cursor.execute("SELECT patient_id, first_name, last_name FROM Patients WHERE therapist_id = %s", (session_data["user_id"],))
+                    patients = cursor.fetchall()
+                    
+                    return templates.TemplateResponse("edit_appointment.html", {
+                        "request": request,
+                        "appointment": appointment,
+                        "patients": patients
+                    })
+                    
+                finally:
+                    if cursor:
+                        cursor.close()
+                    if db:
+                        db.close()
+                        
+            except Exception as e:
+                print(f"Error loading edit appointment: {e}")
+                return RedirectResponse(url="/appointments", status_code=303)
         
         try:
             session_data = await get_redis_session(session_id)
@@ -5567,158 +5606,6 @@ def Routes():
                     
         except Exception as e:
             print(f"Error in edit appointment: {e}")
-            print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login", status_code=303)
-                
-    @app.get("/appointments/{appointment_id}/delete")
-    async def delete_appointment(request: Request, appointment_id: int, user=Depends(get_current_user)):
-        """Delete an appointment"""
-        session_id = request.cookies.get("session_id")
-        
-        if not session_id:
-            return RedirectResponse(url="/Therapist_Login", status_code=303)
-        
-        try:
-            session_data = await get_redis_session(session_id)
-            if not session_data:
-                return RedirectResponse(url="/Therapist_Login", status_code=303)
-            
-            db = get_Mysql_db()
-            cursor = None
-            
-            try:
-                cursor = db.cursor(pymysql.cursors.DictCursor)  
-                
-                cursor.execute(
-                    """SELECT appointment_id 
-                    FROM Appointments 
-                    WHERE appointment_id = %s AND therapist_id = %s""",
-                    (appointment_id, session_data["user_id"])
-                )
-                appointment = cursor.fetchone()
-                
-                if not appointment:
-                    return RedirectResponse(url="/appointments?error=not_found")
-                
-                cursor.execute(
-                    "DELETE FROM Appointments WHERE appointment_id = %s",
-                    (appointment_id,)
-                )
-                db.commit()
-                
-                return RedirectResponse(url="/appointments?success=deleted", status_code=303)
-            
-            except Exception as e:
-                print(f"Database error in delete appointment: {e}")
-                print(f"Traceback: {traceback.format_exc()}")
-                return RedirectResponse(url="/appointments?error=database")
-            
-            finally:
-                if cursor:
-                    cursor.close()
-                if db:
-                    db.close()
-        
-        except Exception as e:
-            print(f"Error in delete appointment: {e}")
-            print(f"Traceback: {traceback.format_exc()}")
-            return RedirectResponse(url="/Therapist_Login", status_code=303)
-
-
-    @app.post("/appointments/{appointment_id}/edit")
-    async def update_appointment(request: Request, appointment_id: int):
-        """Handle appointment update form submission"""
-        session_id = request.cookies.get("session_id")
-        if not session_id:
-            return RedirectResponse(url="/Therapist_Login", status_code=303)
-
-        try:
-            session_data = await get_redis_session(session_id)
-            if not session_data:
-                return RedirectResponse(url="/Therapist_Login", status_code=303)
-
-            form_data = await request.form()
-            
-            patient_id = form_data.get("patient_id")
-            appointment_date = form_data.get("appointment_date")
-            appointment_time = form_data.get("appointment_time")
-            duration = form_data.get("duration", "60")
-            notes = form_data.get("notes")
-            status = form_data.get("status", "Scheduled")
-            
-            if not patient_id or not appointment_date or not appointment_time:
-                return RedirectResponse(
-                    url=f"/appointments/{appointment_id}/edit?error=missing_fields", 
-                    status_code=303
-                )
-
-            db = get_Mysql_db()
-            cursor = None
-            
-            try:
-                cursor = db.cursor(pymysql.cursors.DictCursor) 
-                
-                cursor.execute(
-                    """SELECT appointment_id 
-                    FROM Appointments 
-                    WHERE appointment_id = %s AND therapist_id = %s""",
-                    (appointment_id, session_data["user_id"])
-                )
-                
-                if not cursor.fetchone():
-                    print(f"Appointment {appointment_id} does not belong to therapist {session_data['user_id']}")
-                    return RedirectResponse(url="/appointments?error=unauthorized")
-                
-                cursor.execute(
-                    "SELECT patient_id FROM Patients WHERE patient_id = %s AND therapist_id = %s",
-                    (patient_id, session_data["user_id"])
-                )
-                
-                if not cursor.fetchone():
-                    print(f"Patient {patient_id} does not belong to therapist {session_data['user_id']}")
-                    return RedirectResponse(url=f"/appointments/{appointment_id}/edit?error=invalid_patient")
-                
-                try:
-                    try:
-                        time_obj = datetime.strptime(appointment_time, "%H:%M").time()
-                    except ValueError:
-                        try:
-                            time_obj = datetime.strptime(appointment_time, "%I:%M %p").time()
-                        except ValueError:
-                            time_obj = datetime.strptime(appointment_time, "%I:%M%p").time()
-                    
-                    cursor.execute(
-                        """UPDATE Appointments 
-                        SET patient_id = %s, 
-                            appointment_date = %s, 
-                            appointment_time = %s, 
-                            duration = %s, 
-                            notes = %s, 
-                            status = %s,
-                            updated_at = CURRENT_TIMESTAMP
-                        WHERE appointment_id = %s""",
-                        (patient_id, appointment_date, time_obj, duration, notes, status, appointment_id)
-                    )
-                    db.commit()
-                    
-                    return RedirectResponse(url="/appointments?success=updated", status_code=303)
-                except ValueError as ve:
-                    print(f"Time parsing error: {ve}")
-                    return RedirectResponse(url=f"/appointments/{appointment_id}/edit?error=invalid_time_format")
-                    
-            except Exception as e:
-                if db:
-                    db.rollback()
-                print(f"Database error updating appointment: {e}")
-                print(f"Traceback: {traceback.format_exc()}")
-                return RedirectResponse(url=f"/appointments/{appointment_id}/edit?error=db_error")
-            finally:
-                if cursor:
-                    cursor.close()
-                if db:
-                    db.close()
-        except Exception as e:
-            print(f"Error updating appointment: {e}")
             print(f"Traceback: {traceback.format_exc()}")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
     
