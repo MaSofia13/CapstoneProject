@@ -6546,14 +6546,13 @@ def Routes():
             )
 
     def convert_mysql_time_to_time(mysql_time):
-        """Convert MySQL TIME (timedelta) to datetime.time"""
         if isinstance(mysql_time, timedelta):
             return (datetime.min + mysql_time).time()
         return mysql_time
 
     @app.get("/therapists/{id}/availability")
     async def get_therapist_availability(id: int, date: str = None):
-        import datetime as datetimee
+        from datetime import datetime, date, time, timedelta, combine
         
         try:
             if not date:
@@ -6561,7 +6560,6 @@ def Routes():
             
             db = get_Mysql_db()
             cursor = db.cursor(pymysql.cursors.DictCursor)
-
 
             try:
                 cursor.execute(
@@ -6591,18 +6589,18 @@ def Routes():
                 slot_duration = therapist.get('average_session_length', 60) or 60
                 
                 available_slots = []
-                current_time = datetimee.time(start_hour, 0)
-                end_time = datetimee.time(end_hour, 0)
+                current_time = time(start_hour, 0)
+                end_time = time(end_hour, 0)
                 
                 slot_id = 1
                 while current_time < end_time:
-                    slot_end = (datetime.combine(datetimee.date.today(), current_time) + 
+                    slot_end = (combine(date.today(), current_time) + 
                                 timedelta(minutes=slot_duration)).time()
                     
                     is_available = True
                     for booked in booked_slots:
                         booked_start = convert_mysql_time_to_time(booked.get('appointment_time'))
-                        booked_end_dt = (datetime.combine(date.today(), booked_start) + 
+                        booked_end_dt = (combine(date.today(), booked_start) + 
                                         timedelta(minutes=booked.get('duration', 60)))
                         booked_end = booked_end_dt.time()
                         
@@ -6621,7 +6619,7 @@ def Routes():
                     
                     slot_id += 1
                     
-                    current_time_dt = datetime.combine(datetime.date.today(), current_time)
+                    current_time_dt = combine(date.today(), current_time)
                     current_time_dt += timedelta(minutes=30)
                     current_time = current_time_dt.time()
                 
@@ -6644,7 +6642,7 @@ def Routes():
                 status_code=500,
                 content={"error": f"Server error: {str(e)}"}
             )
-
+    
     @app.post("/api/book-appointment")
     async def book_appointment(appointment_request: AppointmentRequest, request: Request):
         
