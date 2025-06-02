@@ -5121,6 +5121,7 @@ def Routes():
         return processed
 
     def serialize_datetime(obj):
+        from datetime import datetime, time, date
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
         elif isinstance(obj, time):
@@ -5131,7 +5132,6 @@ def Routes():
             minutes = int((total_seconds % 3600) // 60)
             return f"{hours:02d}:{minutes:02d}"
         raise TypeError(f"Type {type(obj)} not serializable")
-    
     
     @app.get("/appointments")
     async def appointments_page(request: Request, user=Depends(get_current_user)):
