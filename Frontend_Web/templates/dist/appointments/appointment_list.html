@@ -435,7 +435,6 @@
                               <i class="ti ti-dots-vertical f-18"></i>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
-                              <li><a class="dropdown-item" href="/appointments/{{ appointment.appointment_id }}/edit"><i class="ti ti-edit me-2"></i>Edit</a></li>
                               <li><a class="dropdown-item text-success" href="#" onclick="markAsCompleted({{ appointment.appointment_id }})"><i class="ti ti-check me-2"></i>Mark Completed</a></li>
                               <li><a class="dropdown-item text-danger" href="#" onclick="markAsCancelled({{ appointment.appointment_id }})"><i class="ti ti-x me-2"></i>Cancel</a></li>
                             </ul>
@@ -530,7 +529,6 @@
                                     <i class="ti ti-dots-vertical"></i>
                                   </a>
                                   <ul class="dropdown-menu" aria-labelledby="action-{{ appointment.appointment_id }}">
-                                    <li><a class="dropdown-item" href="/appointments/{{ appointment.appointment_id }}/edit"><i class="ti ti-edit me-2"></i>Edit</a></li>
                                     <li><a class="dropdown-item text-success" href="#" onclick="markAsCompleted({{ appointment.appointment_id }})"><i class="ti ti-check me-2"></i>Mark Completed</a></li>
                                     <li><a class="dropdown-item text-danger" href="#" onclick="markAsCancelled({{ appointment.appointment_id }})"><i class="ti ti-x me-2"></i>Cancel</a></li>
                                   </ul>
