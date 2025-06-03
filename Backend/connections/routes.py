@@ -3744,47 +3744,91 @@ def Routes():
         user = Depends(get_current_user)
     ):
         """Route to delete an exercise"""
-        db = get_Mysql_db()
+        print(f"Attempting to delete exercise ID: {exercise_id} for user: {user}")
+        
+        db = None
         cursor = None
         
         try:
+            db = get_Mysql_db()
             cursor = db.cursor()
             
             cursor.execute(
-                "SELECT video_url, video_type FROM Exercises WHERE exercise_id = %s", 
+                "SELECT video_url, video_type FROM Exercises WHERE exercise_id = %s",
                 (exercise_id,)
             )
             exercise = cursor.fetchone()
             
-            if exercise and exercise['video_url'] and exercise.get('video_type') == 'upload':
+            if not exercise:
+                print(f"Exercise with ID {exercise_id} not found")
+                return RedirectResponse(url="/exercises?error=not_found", status_code=303)
+            
+            print(f"Found exercise: {exercise}")
+            
+            if exercise and exercise.get('video_url') and exercise.get('video_type') == 'upload':
                 try:
                     current_file = Path(__file__).resolve()
                     project_root = current_file.parent.parent.parent
-                    video_path = project_root / "Frontend_Web" / exercise['video_url'].lstrip('/')
                     
-                    if os.path.exists(video_path):
-                        os.remove(video_path)
-                        print(f"Deleted video file: {video_path}")
-                except Exception as e:
-                    print(f"Error deleting video file: {e}")
+                    video_relative_path = exercise['video_url'].lstrip('/')
+                    video_path = project_root / "Frontend_Web" / video_relative_path
+                    
+                    print(f"Attempting to delete video file at: {video_path}")
+                    
+                    if video_path.exists() and video_path.is_file():
+                        video_path.unlink()  
+                        print(f"Successfully deleted video file: {video_path}")
+                    else:
+                        print(f"Video file not found or not a file: {video_path}")
+                        
+                except Exception as file_error:
+                    print(f"Error deleting video file: {file_error}")
             
             cursor.execute(
-                "DELETE FROM Exercises WHERE exercise_id = %s", 
+                "DELETE FROM Exercises WHERE exercise_id = %s",
                 (exercise_id,)
             )
-            db.commit()
             
-            return RedirectResponse(url="/exercises", status_code=303)
-        except Exception as e:
-            if db:
+            if cursor.rowcount == 0:
+                print(f"No exercise was deleted - exercise_id {exercise_id} may not exist")
                 db.rollback()
+                return RedirectResponse(url="/exercises?error=not_found", status_code=303)
+            
+            db.commit()
+            print(f"Successfully deleted exercise ID: {exercise_id}")
+            
+            return RedirectResponse(url="/exercises?success=deleted", status_code=303)
+            
+        except Exception as e:
             print(f"Error deleting exercise: {e}")
-            return RedirectResponse(url="/exercises", status_code=303)
+            print(f"Exception type: {type(e).__name__}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            
+            if db:
+                try:
+                    db.rollback()
+                    print("Database transaction rolled back")
+                except Exception as rollback_error:
+                    print(f"Error during rollback: {rollback_error}")
+            
+            return RedirectResponse(url="/exercises?error=deletion_failed", status_code=303)
+            
         finally:
             if cursor:
-                cursor.close()
+                try:
+                    cursor.close()
+                    print("Database cursor closed")
+                except Exception as cursor_error:
+                    print(f"Error closing cursor: {cursor_error}")
+                    
             if db:
-                db.close()
+                try:
+                    db.close()
+                    print("Database connection closed")
+                except Exception as db_error:
+                    print(f"Error closing database connection: {db_error}")
+
     
     @app.post("/api/exercises/rate")
     async def rate_exercise(
