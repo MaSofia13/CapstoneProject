@@ -141,12 +141,6 @@
                   <button type="button" class="btn btn-danger" onclick="markAsCancelled({{ appointment.appointment_id }})">
                     <i class="ti ti-x me-1"></i> Cancel
                   </button>
-                {% elif appointment.status == 'Completed' %}
-                {% elif appointment.status == 'Cancelled' %}
-                  <button type="button" class="btn btn-outline-primary" onclick="rescheduleAppointment({{ appointment.appointment_id }})">
-                    <i class="ti ti-calendar-plus me-1"></i> Reschedule
-                  </button>
-                {% endif %}
               </div>
             </div>
           </div>
