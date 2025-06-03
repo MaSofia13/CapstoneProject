@@ -3757,32 +3757,37 @@ def Routes():
                 "SELECT video_url, video_type FROM Exercises WHERE exercise_id = %s",
                 (exercise_id,)
             )
-            exercise = cursor.fetchone()
+            exercise_data = cursor.fetchone()
             
-            if not exercise:
+            if not exercise_data:
                 print(f"Exercise with ID {exercise_id} not found")
                 return RedirectResponse(url="/exercises?error=not_found", status_code=303)
             
-            print(f"Found exercise: {exercise}")
+            video_url = exercise_data[0]
+            video_type = exercise_data[1]
             
-            if exercise and exercise.get('video_url') and exercise.get('video_type') == 'upload':
+            print(f"Found exercise - URL: {video_url}, Type: {video_type}")
+            
+            if video_url and video_type == 'upload':
                 try:
                     current_file = Path(__file__).resolve()
                     project_root = current_file.parent.parent.parent
                     
-                    video_relative_path = exercise['video_url'].lstrip('/')
+                    video_relative_path = video_url.lstrip('/')
                     video_path = project_root / "Frontend_Web" / video_relative_path
                     
                     print(f"Attempting to delete video file at: {video_path}")
                     
                     if video_path.exists() and video_path.is_file():
-                        video_path.unlink()  
+                        video_path.unlink()
                         print(f"Successfully deleted video file: {video_path}")
                     else:
                         print(f"Video file not found or not a file: {video_path}")
                         
                 except Exception as file_error:
                     print(f"Error deleting video file: {file_error}")
+            else:
+                print(f"Skipping file deletion - video_type is '{video_type}', not 'upload'")
             
             cursor.execute(
                 "DELETE FROM Exercises WHERE exercise_id = %s",
