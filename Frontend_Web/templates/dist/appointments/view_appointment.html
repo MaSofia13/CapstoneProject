@@ -24,6 +24,15 @@
   <div class="col-md-8">
     <div class="card">
       <div class="card-header">
+        <h5>Appointment Information</h5>
+        <div class="card-header-right">
+          <div class="btn-group card-option">
+            <a href="/appointments/{{ appointment.appointment_id }}/edit" class="btn btn-primary btn-sm">
+              <i class="ti ti-edit"></i> Edit
+            </a>
+          </div>
+        </div>
+      </div>
       <div class="card-body">
         {% if request.query_params.get('success') == 'updated' %}
           <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -140,6 +149,8 @@
                   <button type="button" class="btn btn-danger" onclick="markAsCancelled({{ appointment.appointment_id }})">
                     <i class="ti ti-x me-1"></i> Cancel
                   </button>
+                {% elif appointment.status == 'Completed' %}
+                {% elif appointment.status == 'Cancelled' %}
                 {% endif %}
               </div>
             </div>
@@ -257,6 +268,8 @@
 
 {% block scripts %}
 <script>
+  document.addEventListener('DOMContentLoaded', function() {
+  });
   
   function markAsCompleted(appointmentId) {
     const modal = document.getElementById('statusChangeModal');
@@ -288,6 +301,9 @@
     bsModal.show();
   }
   
+  function printAppointment() {
+    window.print();
+  }
   
 
   const confirmStatusChange = document.getElementById('confirmStatusChange');
@@ -321,7 +337,5 @@
       });
     });
   }
-  
-
 </script>
 {% endblock %}
