@@ -5481,6 +5481,62 @@ def Routes():
             return RedirectResponse(url="/Therapist_Login", status_code=303)
             
     
+    @app.get("/appointments/{appointment_id}/delete")
+    async def delete_appointment(request: Request, appointment_id: int, user = Depends(get_current_user)):
+        """Delete an appointment"""
+        session_id = request.cookies.get("session_id")
+        
+        if not session_id:
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
+
+        try:
+            session_data = await get_redis_session(session_id)
+            if not session_data:
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
+
+            db = get_Mysql_db()
+            cursor = None
+            
+            try:
+                cursor = db.cursor(pymysql.cursors.DictCursor)
+                
+                cursor.execute(
+                    "SELECT appointment_id FROM Appointments WHERE appointment_id = %s AND therapist_id = %s",
+                    (appointment_id, session_data["user_id"])
+                )
+                appointment_result = cursor.fetchone()
+                
+                if not appointment_result:
+                    return RedirectResponse(url="/appointments?error=not_found", status_code=303)
+                
+                cursor.execute(
+                    "DELETE FROM Appointments WHERE appointment_id = %s AND therapist_id = %s",
+                    (appointment_id, session_data["user_id"])
+                )
+                
+                db.commit()
+                
+                if cursor.rowcount > 0:
+                    return RedirectResponse(url="/appointments?success=deleted", status_code=303)
+                else:
+                    return RedirectResponse(url="/appointments?error=delete_failed", status_code=303)
+                    
+            except Exception as e:
+                db.rollback()
+                print(f"Database error in delete appointment: {e}")
+                print(f"Traceback: {traceback.format_exc()}")
+                return RedirectResponse(url="/appointments?error=database", status_code=303)
+            finally:
+                if cursor:
+                    cursor.close()
+                if db:
+                    db.close()
+                    
+        except Exception as e:
+            print(f"Error in delete appointment: {e}")
+            print(f"Traceback: {traceback.format_exc()}")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
+    
     @app.get("/appointments/{appointment_id}/edit")
     async def get_edit_appointment(
         request: Request,
