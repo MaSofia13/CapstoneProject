@@ -463,7 +463,6 @@
                           <td>
                             <div class="btn-group" role="group">
                               <a href="/treatment-plans" class="btn btn-sm btn-outline-primary">View</a>
-                              <a href="/treatment-plans/{{ plan.plan_id }}/edit" class="btn btn-sm btn-outline-secondary">Edit</a>
                             </div>
                           </td>
                         </tr>
@@ -520,9 +519,6 @@
                           <td>
                             <div class="btn-group" role="group">
                               <button data-appointment-id="" class="btn btn-sm btn-outline-primary view-appointment"><a href="/appointments">Details</a></button>
-                              {% if appointment.appointment_date >= today %}
-                              <a href="/appointments/{{ appointment.appointment_id }}/edit" class="btn btn-sm btn-outline-secondary">Edit</a>
-                              {% endif %}
                             </div>
                           </td>
                         </tr>
@@ -761,7 +757,6 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <a href="#" id="edit-appointment-link" class="btn btn-primary">Edit</a>
         </div>
       </div>
     </div>
@@ -954,11 +949,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
 
             const filterMap = {
-              'all': null, // Show all
-              'pain': 0,   // Pain level dataset
-              'functionality': 1, // Functionality dataset
-              'adherence': 2, // Adherence dataset
-              'recovery': 3  // Recovery dataset
+              'all': null, 
+              'pain': 0,   
+              'functionality': 1, 
+              'adherence': 2, 
+              'recovery': 3  
             };
             
 
