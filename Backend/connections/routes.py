@@ -2476,6 +2476,11 @@ def Routes():
                 "error": "All fields are required."
             })
             
+        else:
+            return templates.TemplateResponse("dist/pages/register.html", {
+                "request": request,
+                "error": "Registered successfully.."})
+        
         db = get_Mysql_db()
         cursor = db.cursor()
         hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
