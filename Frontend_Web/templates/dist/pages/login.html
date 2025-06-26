@@ -47,6 +47,11 @@
         </div>
         <div class="card my-5">
           <div class="card-body">
+            {% if request.query_params.get("success") %}
+            <div class="alert alert-success mt-3" role="alert">
+              Account created successfully. Please log in.
+            </div>
+            {% endif %}
             <div class="d-flex justify-content-between align-items-end mb-4">
               <h3 class="mb-0"><b>Login</b></h3>
               <a href="/Register_User_Web" class="link-primary">Don't have an account?</a>

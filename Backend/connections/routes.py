@@ -2485,7 +2485,7 @@ def Routes():
                 (first_name, last_name, company_email, hashed_password.decode("utf-8"))
             )
             db.commit()
-            return RedirectResponse(url="/", status_code=303)
+            return RedirectResponse(url="/Therapist_Login?success=1", status_code=303)
         except pymysql.err.IntegrityError:
             return templates.TemplateResponse("dist/pages/register.html", {
                 "request": request,
