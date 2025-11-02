@@ -434,16 +434,11 @@
 -              {% endif %}
 -            </div>
 -          </div>
-
+          
           <!-- Feedback Section -->
           <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h5 class="mb-0">Feedback</h5>
-              {% if submission.status != 'Feedback Provided' %}
-              <a href="/exercises/submissions/{{ submission.submission_id }}/edit" class="btn btn-sm btn-warning">
-                <i class="ti ti-edit me-1"></i> Edit Submission
-              </a>
-              {% endif %}
+            <div class="card-header">
+              <h5>Feedback</h5>
             </div>
             <div class="card-body">
               {% if submission.status == 'Feedback Provided' %}
@@ -468,36 +463,34 @@
                   </div>
                 </div>
               {% else %}
-                <!-- No feedback yet - Show form (Edit button is in header) -->
-                <div class="alert alert-info mb-3">
-                  <i class="ti ti-info-circle me-2"></i>
-                  Provide feedback on this exercise submission. You can edit submission details using the button above before providing feedback.
+                <div>
+                  <form action="/exercises/submissions/{{ submission.submission_id }}/feedback" method="post">
+                    <div class="mb-3">
+                      <label for="rating" class="form-label">Rating</label>
+                      <select class="form-select" id="rating" name="rating" required>
+                        <option value="" selected disabled>Select a rating</option>
+                        <option value="Excellent">Excellent</option>
+                        <option value="Good">Good</option>
+                        <option value="Needs Improvement">Needs Improvement</option>
+                        <option value="Poor">Poor</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label for="feedback" class="form-label">Feedback Comments</label>
+                      <textarea class="form-control" id="feedback" name="feedback" rows="5" required
+                                placeholder="Provide detailed feedback on form, technique, improvements needed, etc."></textarea>
+                    </div>
+                    <div class="text-end">
+                      <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-send me-1"></i> Submit Feedback
+                      </button>
+                    </div>
+                  </form>
                 </div>
-                <form action="/exercises/submissions/{{ submission.submission_id }}/feedback" method="post">
-                  <div class="mb-3">
-                    <label for="rating" class="form-label">Rating <span class="text-danger">*</span></label>
-                    <select class="form-select" id="rating" name="rating" required>
-                      <option value="" selected disabled>Select a rating</option>
-                      <option value="Excellent">Excellent</option>
-                      <option value="Good">Good</option>
-                      <option value="Needs Improvement">Needs Improvement</option>
-                      <option value="Poor">Poor</option>
-                    </select>
-                  </div>
-                  <div class="mb-3">
-                    <label for="feedback" class="form-label">Feedback Comments <span class="text-danger">*</span></label>
-                    <textarea class="form-control" id="feedback" name="feedback" rows="5" required
-                              placeholder="Provide detailed feedback on form, technique, improvements needed, etc."></textarea>
-                  </div>
-                  <div class="text-end">
-                    <button type="submit" class="btn btn-primary">
-                      <i class="ti ti-send me-1"></i> Submit Feedback
-                    </button>
-                  </div>
-                </form>
               {% endif %}
             </div>
           </div>
+        </div>
       </div>
     </div>
   </div>
