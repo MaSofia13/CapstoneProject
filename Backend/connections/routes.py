@@ -3496,6 +3496,11 @@ def Routes():
                 if not submission:
                     return RedirectResponse(url="/exercises/submissions")
                 
+                # CRITICAL: Prevent editing if feedback already provided
+                if submission.get('status') == 'Feedback Provided':
+                    print(f"Attempted to edit submission {submission_id} that already has feedback")
+                    return RedirectResponse(url=f"/exercises/submissions/{submission_id}", status_code=303)
+                
                 # Get all exercises for dropdown
                 cursor.execute(
                     """SELECT exercise_id, name, category 
@@ -3556,7 +3561,7 @@ def Routes():
         submission_id: int,
         exercise_id: int = Form(...),
         treatment_plan_id: int = Form(...),
-        notes: str = Form(None),
+        notes: str = Form(""),
         status: str = Form(...)
     ):
         session_id = request.cookies.get("session_id")
@@ -3581,9 +3586,8 @@ def Routes():
             try:
                 cursor = db.cursor(pymysql.cursors.DictCursor)
                 
-                # Verify therapist has access to this submission
                 cursor.execute(
-                    """SELECT evs.submission_id, evs.patient_id
+                    """SELECT evs.submission_id, evs.patient_id, evs.status
                     FROM ExerciseVideoSubmissions evs
                     JOIN Patients p ON evs.patient_id = p.patient_id
                     WHERE evs.submission_id = %s AND p.therapist_id = %s""",
@@ -3595,7 +3599,17 @@ def Routes():
                     print(f"Therapist {user_id} does not have access to submission {submission_id}")
                     return RedirectResponse(url="/exercises/submissions")
                 
-                # Update the submission
+                if result.get('status') == 'Feedback Provided':
+                    print(f"Attempted to update submission {submission_id} that already has feedback")
+                    return RedirectResponse(url=f"/exercises/submissions/{submission_id}", status_code=303)
+                
+                if status == 'Feedback Provided':
+                    print(f"Attempted to set status to 'Feedback Provided' through edit form - downgrading to 'Reviewed'")
+                    status = 'Reviewed'
+                
+                if notes is None:
+                    notes = ""
+                
                 cursor.execute(
                     """UPDATE ExerciseVideoSubmissions 
                     SET exercise_id = %s,
@@ -3616,7 +3630,7 @@ def Routes():
                 print(f"Traceback: {traceback.format_exc()}")
                 if db:
                     db.rollback()
-                return RedirectResponse(url=f"/exercises/submissions/{submission_id}/edit")
+                return RedirectResponse(url=f"/exercises/submissions/{submission_id}/edit", status_code=303)
             finally:
                 if cursor:
                     cursor.close()
