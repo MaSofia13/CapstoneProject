@@ -3435,7 +3435,7 @@ def Routes():
             except Exception as e:
                 print(f"Database error in providing feedback: {e}")
                 print(f"Traceback: {traceback.format_exc()}")
-                return RedirectResponse(url=f"/exercises/submissions/{submission_id}")
+                return RedirectResponse(url=f"/exercises/submissions/{submission_id}") 
             finally:
                 if cursor:
                     cursor.close()
@@ -3443,6 +3443,187 @@ def Routes():
                     db.close()
         except Exception as e:
             print(f"Error in providing feedback: {e}")
+            print(f"Traceback: {traceback.format_exc()}")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
+        
+    @app.get("/exercises/submissions/{submission_id}/edit")
+    async def edit_exercise_submission(request: Request, submission_id: int):
+        session_id = request.cookies.get("session_id")
+        if not session_id:
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
+        
+        try:
+            session_data = await get_redis_session(session_id)
+            if not session_data:
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
+            
+            try:
+                user_id = int(session_data["user_id"])
+                print(f"User ID (int): {user_id}")
+            except (ValueError, TypeError):
+                user_id = session_data["user_id"]
+                print(f"User ID (original): {user_id}")
+            
+            db = get_Mysql_db()
+            cursor = None
+            try:
+                cursor = db.cursor(pymysql.cursors.DictCursor)
+                
+                # Get therapist info
+                cursor.execute(
+                    """SELECT id, first_name, last_name, profile_image
+                    FROM Therapists
+                    WHERE id = %s""",
+                    (user_id,)
+                )
+                therapist = cursor.fetchone()
+                if not therapist:
+                    return RedirectResponse(url="/Therapist_Login", status_code=303)
+                
+                # Get submission details with verification
+                cursor.execute(
+                    """SELECT evs.*, p.first_name, p.last_name, p.patient_id,
+                    e.name as exercise_name, e.exercise_id, 
+                    tp.name as plan_name, tp.plan_id
+                    FROM ExerciseVideoSubmissions evs
+                    JOIN Patients p ON evs.patient_id = p.patient_id
+                    JOIN Exercises e ON evs.exercise_id = e.exercise_id
+                    JOIN TreatmentPlans tp ON evs.treatment_plan_id = tp.plan_id
+                    WHERE evs.submission_id = %s AND p.therapist_id = %s""",
+                    (submission_id, user_id)
+                )
+                submission = cursor.fetchone()
+                if not submission:
+                    return RedirectResponse(url="/exercises/submissions")
+                
+                # Get all exercises for dropdown
+                cursor.execute(
+                    """SELECT exercise_id, name, category 
+                    FROM Exercises 
+                    ORDER BY category, name"""
+                )
+                exercises = cursor.fetchall()
+                
+                # Get all treatment plans for this patient
+                cursor.execute(
+                    """SELECT plan_id, name 
+                    FROM TreatmentPlans 
+                    WHERE patient_id = %s 
+                    ORDER BY created_at DESC""",
+                    (submission.get('patient_id'),)
+                )
+                treatment_plans = cursor.fetchall()
+                
+                # Get unread messages count
+                cursor.execute(
+                    "SELECT COUNT(*) as count FROM Messages WHERE recipient_id = %s AND recipient_type = 'therapist' AND is_read = FALSE",
+                    (user_id,)
+                )
+                unread_count_result = cursor.fetchone()
+                unread_messages_count = unread_count_result.get('count', 0) if unread_count_result else 0
+                
+                return templates.TemplateResponse(
+                    "dist/exercises/submission_edit.html",
+                    {
+                        "request": request,
+                        "therapist": therapist,
+                        "first_name": therapist.get("first_name", ""),
+                        "last_name": therapist.get("last_name", ""),
+                        "unread_messages_count": unread_messages_count,
+                        "submission": submission,
+                        "exercises": exercises,
+                        "treatment_plans": treatment_plans
+                    }
+                )
+            except Exception as e:
+                print(f"Database error in edit submission: {e}")
+                print(f"Traceback: {traceback.format_exc()}")
+                return RedirectResponse(url="/exercises/submissions")
+            finally:
+                if cursor:
+                    cursor.close()
+                if db:
+                    db.close()
+        except Exception as e:
+            print(f"Error in edit submission: {e}")
+            print(f"Traceback: {traceback.format_exc()}")
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
+
+
+    @app.post("/exercises/submissions/{submission_id}/update")
+    async def update_exercise_submission(
+        request: Request,
+        submission_id: int,
+        exercise_id: int = Form(...),
+        treatment_plan_id: int = Form(...),
+        notes: str = Form(None),
+        status: str = Form(...)
+    ):
+        session_id = request.cookies.get("session_id")
+        if not session_id:
+            return RedirectResponse(url="/Therapist_Login", status_code=303)
+        
+        try:
+            session_data = await get_redis_session(session_id)
+            if not session_data:
+                return RedirectResponse(url="/Therapist_Login", status_code=303)
+            
+            try:
+                user_id = int(session_data["user_id"])
+                print(f"User ID (int): {user_id}")
+            except (ValueError, TypeError):
+                user_id = session_data["user_id"]
+                print(f"User ID (original): {user_id}")
+            
+            db = get_Mysql_db()
+            cursor = None
+            
+            try:
+                cursor = db.cursor(pymysql.cursors.DictCursor)
+                
+                # Verify therapist has access to this submission
+                cursor.execute(
+                    """SELECT evs.submission_id, evs.patient_id
+                    FROM ExerciseVideoSubmissions evs
+                    JOIN Patients p ON evs.patient_id = p.patient_id
+                    WHERE evs.submission_id = %s AND p.therapist_id = %s""",
+                    (submission_id, user_id)
+                )
+                
+                result = cursor.fetchone()
+                if not result:
+                    print(f"Therapist {user_id} does not have access to submission {submission_id}")
+                    return RedirectResponse(url="/exercises/submissions")
+                
+                # Update the submission
+                cursor.execute(
+                    """UPDATE ExerciseVideoSubmissions 
+                    SET exercise_id = %s,
+                        treatment_plan_id = %s,
+                        notes = %s,
+                        status = %s
+                    WHERE submission_id = %s""",
+                    (exercise_id, treatment_plan_id, notes, status, submission_id)
+                )
+                
+                db.commit()
+                print(f"Submission {submission_id} updated successfully")
+                
+                return RedirectResponse(url=f"/exercises/submissions/{submission_id}", status_code=303)
+                
+            except Exception as e:
+                print(f"Database error in updating submission: {e}")
+                print(f"Traceback: {traceback.format_exc()}")
+                if db:
+                    db.rollback()
+                return RedirectResponse(url=f"/exercises/submissions/{submission_id}/edit")
+            finally:
+                if cursor:
+                    cursor.close()
+                if db:
+                    db.close()
+        except Exception as e:
+            print(f"Error in updating submission: {e}")
             print(f"Traceback: {traceback.format_exc()}")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
         

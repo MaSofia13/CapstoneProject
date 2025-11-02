@@ -304,16 +304,20 @@
                 {% endif %}
               </div>
               <hr>
-              <div class="row">
-                <div class="col-12">
-                  <div class="d-flex align-items-center justify-content-between">
-                    <a href="/patients/{{ submission.patient_id }}" class="btn btn-outline-primary">
+            <div class="row">
+              <div class="col-12">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div>
+                    <a href="/patients/{{ submission.patient_id }}" class="btn btn-outline-primary me-2">
                       <i class="ti ti-user me-1"></i> Patient Profile
                     </a>
-                    <a href="/exercises/submissions" class="btn btn-outline-primary">
-                      <i class="ti ti-arrow-left me-1"></i> Back to List
+                    <a href="/exercises/submissions/{{ submission.submission_id }}/edit" class="btn btn-outline-warning">
+                      <i class="ti ti-edit me-1"></i> Edit Submission
                     </a>
                   </div>
+                  <a href="/exercises/submissions" class="btn btn-outline-primary">
+                    <i class="ti ti-arrow-left me-1"></i> Back to List
+                  </a>
                 </div>
               </div>
             </div>
