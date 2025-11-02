@@ -3894,7 +3894,7 @@ def Routes():
         except Exception as e:
             print(f"Error in rate exercise: {e}")
             return JSONResponse(status_code=500, content={"success": False, "message": "Server error"})
-
+    
     @app.get("/exercises/submissions/{submission_id}/edit-feedback")
     async def edit_feedback(request: Request, submission_id: int):
         """Edit existing feedback for a submission"""
@@ -3907,12 +3907,16 @@ def Routes():
             if not session_data:
                 return RedirectResponse(url="/Therapist_Login", status_code=303)
             
-            user_id = session_data["user_id"]
+            try:
+                user_id = int(session_data["user_id"])
+            except (ValueError, TypeError):
+                user_id = session_data["user_id"]
             
             db = get_Mysql_db()
-            cursor = db.cursor(pymysql.cursors.DictCursor)
-            
+            cursor = None
             try:
+                cursor = db.cursor(pymysql.cursors.DictCursor)
+                
                 # Get therapist info
                 cursor.execute(
                     """SELECT id, first_name, last_name, profile_image
@@ -3924,38 +3928,28 @@ def Routes():
                 if not therapist:
                     return RedirectResponse(url="/Therapist_Login", status_code=303)
                 
-                # Get submission with existing feedback - verify therapist access
+                # Get submission - EXACT SAME QUERY AS view_exercise_submission
                 cursor.execute(
                     """SELECT evs.*, p.first_name, p.last_name, p.patient_id,
-                    e.name as exercise_name
+                    e.name as exercise_name, tp.name as plan_name
                     FROM ExerciseVideoSubmissions evs
                     JOIN Patients p ON evs.patient_id = p.patient_id
                     JOIN Exercises e ON evs.exercise_id = e.exercise_id
+                    JOIN TreatmentPlans tp ON evs.treatment_plan_id = tp.plan_id
                     WHERE evs.submission_id = %s AND p.therapist_id = %s""",
                     (submission_id, user_id)
                 )
                 submission = cursor.fetchone()
-                
                 if not submission:
-                    print(f"Submission {submission_id} not found or therapist {user_id} unauthorized")
-                    return RedirectResponse(url="/exercises/submissions", status_code=303)
-                
-                # Check if feedback exists to edit
-                if submission.get('status') != 'Feedback Provided':
-                    print(f"No feedback exists for submission {submission_id}")
-                    return RedirectResponse(url=f"/exercises/submissions/{submission_id}", status_code=303)
+                    return RedirectResponse(url="/exercises/submissions")
                 
                 # Get unread messages count
                 cursor.execute(
-                    """SELECT COUNT(*) as count 
-                    FROM Messages 
-                    WHERE recipient_id = %s 
-                    AND recipient_type = 'therapist' 
-                    AND is_read = FALSE""",
+                    "SELECT COUNT(*) as count FROM Messages WHERE recipient_id = %s AND recipient_type = 'therapist' AND is_read = FALSE",
                     (user_id,)
                 )
-                unread_result = cursor.fetchone()
-                unread_messages_count = unread_result.get('count', 0) if unread_result else 0
+                unread_count_result = cursor.fetchone()
+                unread_messages_count = unread_count_result.get('count', 0) if unread_count_result else 0
                 
                 return templates.TemplateResponse(
                     "dist/exercises/submission_edit_feedback.html",
@@ -3968,15 +3962,15 @@ def Routes():
                         "submission": submission
                     }
                 )
-                
             except Exception as e:
                 print(f"Database error in edit feedback: {e}")
                 print(f"Traceback: {traceback.format_exc()}")
-                return RedirectResponse(url="/exercises/submissions", status_code=303)
+                return RedirectResponse(url="/exercises/submissions")
             finally:
-                cursor.close()
-                db.close()
-                
+                if cursor:
+                    cursor.close()
+                if db:
+                    db.close()
         except Exception as e:
             print(f"Error in edit feedback: {e}")
             print(f"Traceback: {traceback.format_exc()}")
@@ -4000,13 +3994,18 @@ def Routes():
             if not session_data:
                 return RedirectResponse(url="/Therapist_Login", status_code=303)
 
-            user_id = session_data["user_id"]
-            
-            db = get_Mysql_db()
-            cursor = db.cursor()
-            
             try:
-                # Verify therapist has access to this submission
+                user_id = int(session_data["user_id"])
+            except (ValueError, TypeError):
+                user_id = session_data["user_id"]
+
+            db = get_Mysql_db()
+            cursor = None
+
+            try:
+                cursor = db.cursor(pymysql.cursors.DictCursor)
+
+                # EXACT SAME VERIFICATION AS provide_submission_feedback
                 cursor.execute(
                     """SELECT evs.submission_id 
                     FROM ExerciseVideoSubmissions evs
@@ -4018,13 +4017,14 @@ def Routes():
                 result = cursor.fetchone()
                 if not result:
                     print(f"Therapist {user_id} does not have access to submission {submission_id}")
-                    return RedirectResponse(url="/exercises/submissions", status_code=303)
+                    return RedirectResponse(url="/exercises/submissions")
 
-                # Update the feedback
+                # EXACT SAME UPDATE AS provide_submission_feedback
                 cursor.execute(
                     """UPDATE ExerciseVideoSubmissions 
                     SET therapist_feedback = %s, 
                         feedback_rating = %s,
+                        status = 'Feedback Provided',
                         feedback_date = CURRENT_TIMESTAMP
                     WHERE submission_id = %s""",
                     (feedback, rating, submission_id)
@@ -4038,17 +4038,17 @@ def Routes():
             except Exception as e:
                 print(f"Database error in updating feedback: {e}")
                 print(f"Traceback: {traceback.format_exc()}")
-                db.rollback()
-                return RedirectResponse(url=f"/exercises/submissions/{submission_id}/edit-feedback", status_code=303)
+                return RedirectResponse(url=f"/exercises/submissions/{submission_id}") 
             finally:
-                cursor.close()
-                db.close()
-                
+                if cursor:
+                    cursor.close()
+                if db:
+                    db.close()
         except Exception as e:
             print(f"Error in updating feedback: {e}")
             print(f"Traceback: {traceback.format_exc()}")
             return RedirectResponse(url="/Therapist_Login", status_code=303)
-    
+        
     @app.get("/patients")
     async def get_patients_page(request: Request, user=Depends(get_current_user)):
         db = get_Mysql_db()
